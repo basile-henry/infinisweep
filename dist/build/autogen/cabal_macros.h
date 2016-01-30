@@ -7,6 +7,41 @@
   (major1) == 4 && (major2) <  8 || \
   (major1) == 4 && (major2) == 8 && (minor) <= 2)
 
+/* package containers-0.5.6.2 */
+#define VERSION_containers "0.5.6.2"
+#define MIN_VERSION_containers(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  5 || \
+  (major1) == 0 && (major2) == 5 && (minor) <= 6)
+
+/* package ncurses-0.2.15 */
+#define VERSION_ncurses "0.2.15"
+#define MIN_VERSION_ncurses(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  2 || \
+  (major1) == 0 && (major2) == 2 && (minor) <= 15)
+
+/* package random-1.1 */
+#define VERSION_random "1.1"
+#define MIN_VERSION_random(major1,major2,minor) (\
+  (major1) <  1 || \
+  (major1) == 1 && (major2) <  1 || \
+  (major1) == 1 && (major2) == 1 && (minor) <= 0)
+
+/* tool alex-3.1.7 */
+#define TOOL_VERSION_alex "3.1.7"
+#define MIN_TOOL_VERSION_alex(major1,major2,minor) (\
+  (major1) <  3 || \
+  (major1) == 3 && (major2) <  1 || \
+  (major1) == 3 && (major2) == 1 && (minor) <= 7)
+
+/* tool c2hs-0.27.1 */
+#define TOOL_VERSION_c2hs "0.27.1"
+#define MIN_TOOL_VERSION_c2hs(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  27 || \
+  (major1) == 0 && (major2) == 27 && (minor) <= 1)
+
 /* tool cpphs-1.19.3 */
 #define TOOL_VERSION_cpphs "1.19.3"
 #define MIN_TOOL_VERSION_cpphs(major1,major2,minor) (\
@@ -84,5 +119,5 @@
   (major1) == 2 && (major2) <  24 || \
   (major1) == 2 && (major2) == 24 && (minor) <= 0)
 
-#define CURRENT_PACKAGE_KEY "Haske_D9IAHIxbWle3BA6bySuJ1S"
+#define CURRENT_PACKAGE_KEY "Haske_8yrWHMeZwRZ6ev8h2S7V5S"
 

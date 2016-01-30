@@ -1,0 +1,4 @@
+.cabal-sandbox/
+cabal*
+dist/
+out
