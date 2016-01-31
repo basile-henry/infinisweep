@@ -15,7 +15,7 @@ type Position   = (Int, Int)
 data Move       = Up | Down | Left | Right
 type Panel      = (Position, Position)
 type Score      = Int
-data PlayState  = Alive | Dead
+data PlayState  = Alive | Dead deriving Eq
 data GameState  = GameState
     {
         _grid       :: Grid,
@@ -52,15 +52,23 @@ showGrid :: GameState -> Panel -> Position -> [ColorID] -> Update ()
 showGrid gamestate ((left, top), (right, bottom)) (sx, sy) pal = sequence_ [do moveCursor (toInteger $ y - sy) (toInteger $ x - sx); showCell gamestate (x,y) pal | x<-[left..right], y<-[top..bottom]]
 
 showCell :: GameState -> Position -> [ColorID] -> Update ()
-showCell GameState{_grid=grid, _visibility=vis, _markers=mar} pos pal
-    | member pos mar = do setColor $ pal!!8; drawString "!";
-    | member pos vis = showCell' (getCell grid pos) (tallyMines grid pos)
-    | otherwise      = drawString " "
+showCell GameState{_grid=grid, _visibility=vis, _markers=mar, _playState=playstate} pos pal
+    | member pos mar             = do setColor $ pal!!8; drawString "!";
+    | member pos vis             = showCell' currentCell (tallyMines grid pos)
+    | playstate == Dead &&
+      currentCell == Mine        = drawMine
+    | otherwise                  = drawString " "
     where
+        currentCell :: Cell
+        currentCell = getCell grid pos
+
         showCell' :: Cell -> Int -> Update ()
-        showCell' Mine  _ = do setColor $ pal!!8; drawString "X";
+        showCell' Mine  _ = drawMine
         showCell' Empty 0 = do setColor $ pal!!0; drawString "•";
         showCell' Empty t = do setColor $ pal!!t; drawString $ show t;
+
+        drawMine :: Update ()
+        drawMine = do setColor $ pal!!8; drawString "X";
 
 getEmptyCells :: Grid -> Panel -> (Visibility, Score) -> Position -> (Visibility, Score)
 getEmptyCells grid panel (vis, score) pos
@@ -145,9 +153,9 @@ doUpdate w palette gamestate@(GameState _ _ _ (x, y) score playstate _) = do
 
 inputUpdate :: Window -> [ColorID] -> GameState -> Curses Bool
 inputUpdate w palette gamestate = do
-        ev  <- getEvent w Nothing
+        ev  <- getEvent w (Just 100)
         case ev of
-            Nothing  -> inputUpdate w palette gamestate
+            Nothing  -> doUpdate w palette (gamestate)
             Just ev' -> case ev' of
                 EventCharacter 'q' -> return False
                 EventCharacter 'Q' -> return False
@@ -221,3 +229,17 @@ stepGameWorld (EventCharacter 'M')            gamestate                    = pla
 stepGameWorld (EventCharacter ' ')            gamestate                    = clickCell gamestate
 stepGameWorld (EventSpecialKey KeyEnter)      gamestate                    = clickCell gamestate
 stepGameWorld _ gamestate = gamestate
+
+-- animate :: GameState -> GameState
+-- animate = animate' 10
+
+-- animate' :: Int -> GameState -> GameState
+-- animate' 0 g = g
+-- animate' n g@GameState{_playState=Dead, _position=(x, y), _grid=grid, _visibility=vis} = animate' (n-1) revealOneMine
+--     where
+--         revealOneMine :: GameState
+--         revealOneMine = g{_visibility=insert minePos vis}
+
+--         minePos :: Position
+--         minePos = head $ filter (\p -> (not $ member p vis) && (getCell grid p == Mine)) $ [(x+i, y+j) | d<-[1..], i<-[-d..d], j<-[-d..d]]
+-- animate' _ gamestate                  = gamestate
