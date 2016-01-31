@@ -16,19 +16,28 @@ type Palette = [ColorID]
 
 data GameState = GameState Grid Visibility Position Score Playing Palette
 
+
+-- List indeces are like this: [0, 1, -1, 2, -2..]
+getIndex :: [a] -> Int -> a
+getIndex l i
+    | i <= 0     = l!!(-2*i)
+    | otherwise = l!!(2*i-1)
+
+getCell :: Grid -> Position -> Cell
+getCell grid (x, y) = getIndex (getIndex grid x) y
+
 surroundingPositions :: Position -> [Position]
-surroundingPositions (x, y) = [(i, j) | i<-[x-1..x+1], j<-[y-1..y+1], i>=0 && j>=0 && (x /= i || y /= j)]
+surroundingPositions (x, y) = [(i, j) | i<-[x-1..x+1], j<-[y-1..y+1], x /= i || y /= j]
 
 tallyMines :: Grid -> Position -> Int
-tallyMines grid pos = sum [1 | (x, y)<-(surroundingPositions pos), grid!!y!!x == Mine]
+tallyMines grid pos = length $ filter (==Mine) $ map (getCell grid) (surroundingPositions pos)
 
 showGrid :: GameState -> Position -> Position -> Position -> Update ()
 showGrid gamestate (left, top) (right, bottom) (sx, sy) = sequence_ [do moveCursor (toInteger $ y - sy) (toInteger $ x - sx); showCell gamestate (x,y) | x<-[left..right], y<-[top..bottom]]
 
 showCell :: GameState -> Position -> Update ()
-showCell (GameState grid vis _ _ _ pal) pos@(x, y)
-    | x < 0 || y < 0 = drawString " "
-    | member pos vis = showCell' (grid!!y!!x) (tallyMines grid pos)
+showCell (GameState grid vis _ _ _ pal) pos
+    | member pos vis = showCell' (getCell grid pos) (tallyMines grid pos)
     | otherwise      = do setColor $ pal!!0; drawString "•";
     where
         showCell' :: Cell -> Int -> Update ()
@@ -105,13 +114,13 @@ inputUpdate w gamestate = do
 
 stepGameWorld :: Event -> GameState -> GameState
 stepGameWorld _                               g@(GameState _ _ _      _ False _) = g
-stepGameWorld (EventSpecialKey KeyUpArrow)    (GameState g v (x, y) s p c)       = GameState g v (x, max 0 $ y-1) s p c
+stepGameWorld (EventSpecialKey KeyUpArrow)    (GameState g v (x, y) s p c)       = GameState g v (x, y-1) s p c
 stepGameWorld (EventSpecialKey KeyDownArrow)  (GameState g v (x, y) s p c)       = GameState g v (x, y+1) s p c
-stepGameWorld (EventSpecialKey KeyLeftArrow)  (GameState g v (x, y) s p c)       = GameState g v (max 0 $ x-1, y) s p c
+stepGameWorld (EventSpecialKey KeyLeftArrow)  (GameState g v (x, y) s p c)       = GameState g v (x-1, y) s p c
 stepGameWorld (EventSpecialKey KeyRightArrow) (GameState g v (x, y) s p c)       = GameState g v (x+1, y) s p c
-stepGameWorld (EventCharacter ' ')            (GameState g vis pos@(x, y) score _ c)
-    | g!!y!!x == Mine = GameState g (insert pos vis) pos score False c
-    | otherwise       = GameState g new_vis pos new_score True c
+stepGameWorld (EventCharacter ' ')            (GameState g vis pos score _ c)
+    | getCell g pos == Mine = GameState g (insert pos vis) pos score     False c
+    | otherwise             = GameState g new_vis          pos new_score True c
     where
         (new_vis, new_score) = getEmptyCells g (vis, score) pos
 stepGameWorld _ gamestate = gamestate
