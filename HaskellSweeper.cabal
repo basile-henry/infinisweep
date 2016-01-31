@@ -16,7 +16,7 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 executable HaskellSweeper
-  main-is:             Main.hs
+  main-is:             HaskellSweeper.hs
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >=4.8 && <4.9,
@@ -24,5 +24,4 @@ executable HaskellSweeper
                        containers,
                        random
 
-  hs-source-dirs:      src
   default-language:    Haskell2010
