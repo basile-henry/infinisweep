@@ -1,6 +1,6 @@
 module Main(main) where
 
-import Data.Set (Set, empty, insert, delete, member)
+import Data.Set (Set, empty, insert, delete, member, notMember)
 import Prelude hiding (Either(..))
 import System.Random (StdGen, getStdGen, randomRs, randoms, mkStdGen)
 import UI.NCurses (Update,  Window, Curses, Color(..), ColorID, Event(..), Key(..), moveCursor, setColor, drawString, drawLineH, runCurses, setEcho, defaultWindow, newColorID, updateWindow, windowSize, glyphLineH, render, getEvent)
@@ -69,19 +69,6 @@ showCell GameState{_grid=grid, _visibility=vis, _markers=mar, _playState=playsta
 
         drawMine :: Update ()
         drawMine = do setColor $ pal!!8; drawString "X";
-
-getEmptyCells :: Grid -> Panel -> (Visibility, Score) -> Position -> (Visibility, Score)
-getEmptyCells grid panel (vis, score) pos
-    | member pos vis ||
-      not (inBounds pos panel) = (vis, score)
-    | t > 0                    = (newVis, score + t)
-    | otherwise                = foldl (getEmptyCells grid panel) (newVis, score) (surroundingPositions pos)
-    where
-        t :: Int
-        t = tallyMines grid pos
-
-        newVis :: Visibility
-        newVis = insert pos vis
 
 randomGrid :: StdGen -> Grid
 randomGrid gen = [map (\n -> if n<1 then Mine else Empty) $ randomRs (0, 4 :: Int) (mkStdGen g) | g<-(randoms gen) :: [Int]]
@@ -164,13 +151,8 @@ inputUpdate w palette gamestate = do
                 key                -> doUpdate w palette (stepGameWorld key gamestate)
 
 movePosition :: GameState -> Move -> GameState
-movePosition g@(GameState grid vis _ (x, y) score _ ((left, top), (right, bottom))) move =
-    g{
-        _position   = (x+dx, y+dy),
-        _panel      = newPanel,
-        _visibility = newVis,
-        _score      = newScore
-    }
+movePosition g@(GameState grid vis _ (x, y) _ _ ((left, top), (right, bottom))) move =
+    newGameState{_position = (x+dx, y+dy)}
     where
         (dx, dy) = case move of
             Up    -> ( 0, -1)
@@ -188,13 +170,26 @@ movePosition g@(GameState grid vis _ (x, y) score _ ((left, top), (right, bottom
             Left  -> [(left, i)   | i <- [top..bottom]]
             Right -> [(right, i)  | i <- [top..bottom]]
 
-        (newVis, newScore) = foldl (getEmptyCells grid newPanel) (vis, score) cells
+        newGameState = foldl getEmptyCells g{_panel=newPanel} cells
 
-placeMarker :: GameState -> GameState
-placeMarker g@GameState{_grid=grid, _visibility=vis, _markers=markers, _position=pos}
-    | member pos vis     = g
-    | member pos markers = g{_markers=(delete pos markers)}
-    | otherwise          = newGameState
+getEmptyCells :: GameState -> Position -> GameState
+getEmptyCells g@GameState{_grid=grid, _panel=panel, _visibility=vis, _markers=markers, _score=score} pos
+    | member pos vis ||
+      not (inBounds pos panel) = g
+    | member pos markers       = updateMarker g pos
+    | t > 0                    = g{_visibility=newVis, _score=score + t}
+    | otherwise                = foldl getEmptyCells g{_visibility=newVis} (surroundingPositions pos)
+    where
+        t :: Int
+        t = tallyMines grid pos
+
+        newVis :: Visibility
+        newVis = insert pos vis
+
+updateMarker :: GameState -> Position -> GameState
+updateMarker g@GameState{_grid=grid, _visibility=vis, _markers=markers} pos
+    | notMember pos markers = error "Update marker at a non marker position."
+    | otherwise             = newGameState
         where
             newMarkers :: Markers
             newMarkers = insert pos markers
@@ -207,16 +202,20 @@ placeMarker g@GameState{_grid=grid, _visibility=vis, _markers=markers, _position
 
             newGameState = foldl clickCellPos g{_markers=newMarkers} cells
 
+placeMarker :: GameState -> GameState
+placeMarker g@GameState{_markers=markers, _visibility=vis, _position=pos}
+    | member pos vis     = g
+    | member pos markers = g{_markers=(delete pos markers)}
+    | otherwise          = updateMarker (g{_markers=insert pos markers}) pos
+
 clickCell :: GameState -> GameState
 clickCell g = clickCellPos g (_position g)
 
 clickCellPos :: GameState -> Position -> GameState
-clickCellPos g@(GameState grid vis markers _ score _ panel) pos
+clickCellPos g@GameState{_grid=grid, _visibility=vis, _markers=markers} pos
     | member pos markers       = g
     | getCell grid pos == Mine = g{_visibility=(insert pos vis), _playState=Dead}
-    | otherwise                = g{_visibility=newVis, _score=newScore}
-        where
-            (newVis, newScore) = getEmptyCells grid panel (vis, score) pos
+    | otherwise                = getEmptyCells g pos
 
 stepGameWorld :: Event -> GameState -> GameState
 stepGameWorld (EventSpecialKey KeyUpArrow)    gamestate                    = movePosition gamestate Up
