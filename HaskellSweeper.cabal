@@ -7,8 +7,8 @@ version:             0.1.0.0
 -- description:         
 -- license:             
 license-file:        LICENSE.md
-author:              David & Basile
-maintainer:          basile.henry@hotmail.com
+author:              David Eichmann & Basile Henry
+maintainer:          bjm.henry@gmail.com
 -- copyright:           
 category:            Game
 build-type:          Simple
