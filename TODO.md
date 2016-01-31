@@ -1,5 +1,5 @@
 # Todo list
-- Infinite grid in all directions
+- (DONE) Infinite grid in all directions
 - When opening empty cells stop at the edge of the terminal (and update on move/resize)
 - Mark cells with mine markers (▲) -- toggleable with a key (say "M"), when marked the cell cannot be opened
 - when the number of markers matches the current cell's number: possibility to open neighbouring cells

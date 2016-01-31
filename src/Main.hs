@@ -1,6 +1,6 @@
 module Main(main) where
 
-import Data.Set (Set, empty, insert, member)
+import Data.Set (Set, empty, insert, delete, member)
 import System.Random (StdGen, getStdGen, randomRs, randoms, mkStdGen)
 import UI.NCurses
 
@@ -9,18 +9,18 @@ type Grid = [[Cell]]
 data Cell = Empty | Mine deriving Eq
 
 type Visibility = Set Position
+type Markers = Set Position
 type Position = (Int, Int)
+type Panel = (Position, Position)
 type Score = Int
 type Playing = Bool
-type Palette = [ColorID]
-
-data GameState = GameState Grid Visibility Position Score Playing Palette
+data GameState = GameState Grid Visibility Markers Position Score Playing [ColorID]
 
 
 -- List indeces are like this: [0, 1, -1, 2, -2..]
 getIndex :: [a] -> Int -> a
 getIndex l i
-    | i <= 0     = l!!(-2*i)
+    | i <= 0    = l!!(-2*i)
     | otherwise = l!!(2*i-1)
 
 getCell :: Grid -> Position -> Cell
@@ -32,11 +32,15 @@ surroundingPositions (x, y) = [(i, j) | i<-[x-1..x+1], j<-[y-1..y+1], x /= i || 
 tallyMines :: Grid -> Position -> Int
 tallyMines grid pos = length $ filter (==Mine) $ map (getCell grid) (surroundingPositions pos)
 
-showGrid :: GameState -> Position -> Position -> Position -> Update ()
-showGrid gamestate (left, top) (right, bottom) (sx, sy) = sequence_ [do moveCursor (toInteger $ y - sy) (toInteger $ x - sx); showCell gamestate (x,y) | x<-[left..right], y<-[top..bottom]]
+tallyMarkers :: Markers -> Position -> Int
+tallyMarkers markers pos = length $ filter (\m -> member m markers) (surroundingPositions pos)
+
+showGrid :: GameState -> Panel -> Position -> Update ()
+showGrid gamestate ((left, top), (right, bottom)) (sx, sy) = sequence_ [do moveCursor (toInteger $ y - sy) (toInteger $ x - sx); showCell gamestate (x,y) | x<-[left..right], y<-[top..bottom]]
 
 showCell :: GameState -> Position -> Update ()
-showCell (GameState grid vis _ _ _ pal) pos
+showCell (GameState grid vis mar _ _ _ pal) pos
+    | member pos mar = do setColor $ pal!!8; drawString "�";
     | member pos vis = showCell' (getCell grid pos) (tallyMines grid pos)
     | otherwise      = do setColor $ pal!!0; drawString "•";
     where
@@ -78,26 +82,26 @@ main = do
                 newColorID ColorRed     ColorDefault 8,
                 newColorID ColorRed     ColorDefault 9
             ]
-        doUpdate w (GameState (randomGrid gen) empty (0,0) 0 True palette)
+        doUpdate w (GameState (randomGrid gen) empty empty (0,0) 0 True palette)
 
 doUpdate :: Window -> GameState -> Curses ()
-doUpdate w gamestate@(GameState _ _ (x, y) score playing palette) = do
+doUpdate w gamestate@(GameState _ _ _ (x, y) score playing palette) = do
     updateWindow w $ do
-        (sizeY', sizeX') <- windowSize
-        let (sizeX, sizeY) = (fromInteger sizeX', fromInteger sizeY')
-        let topLeft@(left, top) = (x - (div sizeX 2), y - (div sizeY 2))
-        let bottomRight = (left + sizeX - 1, top + sizeY - 3)
+        (sizeY, sizeX) <- windowSize
+        let (sizeX', sizeY') = (fromInteger sizeX, fromInteger sizeY)
+        let topLeft@(left, top) = (x - (div sizeX' 2), y - (div sizeY' 2))
+        let bottomRight = (left + sizeX' - 1, top + sizeY' - 3)
 
         moveCursor 0 0
-        showGrid gamestate topLeft bottomRight (left, top)
-        moveCursor (sizeY' - 2) 0
-        drawString $ replicate sizeX '═'
-        moveCursor (sizeY' - 1) 0
+        showGrid gamestate (topLeft, bottomRight) (left, top)
+        moveCursor (sizeY - 2) 0
+        drawLineH (Just glyphLineH) sizeX
+        moveCursor (sizeY - 1) 0
         setColor $ palette!!0
         drawString $ if playing
             then "Score: " ++ show score
             else "Game over! Your score is: " ++ show score
-        moveCursor (div sizeY' 2) (div sizeX' 2)
+        moveCursor (div sizeY 2) (div sizeX 2)
     render
     inputUpdate w gamestate
 
@@ -113,14 +117,19 @@ inputUpdate w gamestate = do
 
 
 stepGameWorld :: Event -> GameState -> GameState
-stepGameWorld _                               g@(GameState _ _ _      _ False _) = g
-stepGameWorld (EventSpecialKey KeyUpArrow)    (GameState g v (x, y) s p c)       = GameState g v (x, y-1) s p c
-stepGameWorld (EventSpecialKey KeyDownArrow)  (GameState g v (x, y) s p c)       = GameState g v (x, y+1) s p c
-stepGameWorld (EventSpecialKey KeyLeftArrow)  (GameState g v (x, y) s p c)       = GameState g v (x-1, y) s p c
-stepGameWorld (EventSpecialKey KeyRightArrow) (GameState g v (x, y) s p c)       = GameState g v (x+1, y) s p c
-stepGameWorld (EventCharacter ' ')            (GameState g vis pos score _ c)
-    | getCell g pos == Mine = GameState g (insert pos vis) pos score     False c
-    | otherwise             = GameState g new_vis          pos new_score True c
+stepGameWorld (EventSpecialKey KeyUpArrow)    (GameState g v m (x, y) s p c)  = GameState g v m (x, y-1) s p c
+stepGameWorld (EventSpecialKey KeyDownArrow)  (GameState g v m (x, y) s p c)  = GameState g v m (x, y+1) s p c
+stepGameWorld (EventSpecialKey KeyLeftArrow)  (GameState g v m (x, y) s p c)  = GameState g v m (x-1, y) s p c
+stepGameWorld (EventSpecialKey KeyRightArrow) (GameState g v m (x, y) s p c)  = GameState g v m (x+1, y) s p c
+stepGameWorld _                               g@(GameState _ _ _ _ _ False _) = g -- If not playing, player can move around but not "play" (open cells)
+stepGameWorld (EventCharacter 'm')            g@(GameState grid v m pos s p c)
+    | member pos v = g
+    | member pos m = GameState grid v (delete pos m) pos s p c
+    | otherwise    = GameState grid v (insert pos m) pos s p c
+stepGameWorld (EventCharacter ' ')            g@(GameState grid vis m pos score _ c)
+    | member pos m             = g
+    | getCell grid pos == Mine = GameState grid (insert pos vis) m pos score     False c
+    | otherwise                = GameState grid new_vis          m pos new_score True c
     where
-        (new_vis, new_score) = getEmptyCells g (vis, score) pos
+        (new_vis, new_score) = getEmptyCells grid (vis, score) pos
 stepGameWorld _ gamestate = gamestate
