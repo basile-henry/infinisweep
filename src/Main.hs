@@ -1,6 +1,6 @@
 module Main(main) where
 
-import Data.Set (Set, empty, insert, member, size)
+import Data.Set (Set, empty, insert, member)
 import System.Random (StdGen, getStdGen, randomRs, randoms, mkStdGen)
 import UI.NCurses
 
@@ -29,7 +29,7 @@ showCell :: GameState -> Position -> Update ()
 showCell (GameState grid vis _ _ _ pal) pos@(x, y)
     | x < 0 || y < 0 = drawString " "
     | member pos vis = showCell' (grid!!y!!x) (tallyMines grid pos)
-    | otherwise      = do setColor $ pal!!0; drawString ".";
+    | otherwise      = do setColor $ pal!!0; drawString "•";
     where
         showCell' :: Cell -> Int -> Update ()
         showCell' Mine  _ = do setColor $ pal!!8; drawString "X";
