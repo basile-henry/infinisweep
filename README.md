@@ -19,7 +19,8 @@ cabal build
 With these `options`:
 
 - `auto` -- When placing markers, the cells that are satisfied (number in the cell corresponds to the number of markers around it) will be opened automagically!
--`adventure` -- Play in adventure mode (coming soon)
+- `density=n` where `n` is a number between 0 and 100 inclusive. It sets the mine density as a percentage.
+- `adventure` -- Play in adventure mode (coming soon)
 
 ## How to play
 When a cell in the grid is opened it either contains a mine and therefore explodes (Game Over) or will show the player the number of mines in the neighbouring cells (there are 8 neighbouring cells).
