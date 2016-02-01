@@ -1,6 +1,6 @@
 module Main(main) where
 
-import Data.Set (Set, empty, insert, delete, member, notMember)
+import Data.Set (Set, empty, insert, delete, member, size)
 import Prelude hiding (Either(..))
 import System.Random (StdGen, getStdGen, randomRs, randoms, mkStdGen)
 import UI.NCurses (Update,  Window, Curses, Color(..), ColorID, Event(..), Key(..), moveCursor, setColor, drawString, drawLineH, runCurses, setEcho, defaultWindow, newColorID, updateWindow, windowSize, glyphLineH, render, getEvent)
@@ -13,7 +13,7 @@ type Visibility = Set Position
 type Markers    = Set Position
 type Position   = (Int, Int)
 data Move       = Up | Down | Left | Right
-type Panel      = (Position, Position)
+type Panel      = (Position, Position) -- The panel is used as limits for recursing down empty cells (It is supposed to be bigger than the terminal)
 type Score      = Int
 data PlayState  = Alive | Dead deriving Eq
 data GameState  = GameState
@@ -53,11 +53,14 @@ showGrid gamestate ((left, top), (right, bottom)) (sx, sy) pal = sequence_ [do m
 
 showCell :: GameState -> Position -> [ColorID] -> Update ()
 showCell GameState{_grid=grid, _visibility=vis, _markers=mar, _playState=playstate} pos pal
-    | member pos mar             = do setColor $ pal!!8; drawString "!";
-    | member pos vis             = showCell' currentCell (tallyMines grid pos)
     | playstate == Dead &&
-      currentCell == Mine        = drawMine
-    | otherwise                  = drawString " "
+      member pos mar &&
+      currentCell == Empty = do setColor $ pal!!2; drawString "!";
+    | member pos mar       = do setColor $ pal!!8; drawString "!";
+    | playstate == Dead &&
+      currentCell == Mine  = drawMine
+    | member pos vis       = showCell' currentCell (tallyMines grid pos)
+    | otherwise            = drawString " "
     where
         currentCell :: Cell
         currentCell = getCell grid pos
@@ -174,9 +177,9 @@ movePosition g@(GameState grid vis _ (x, y) _ _ ((left, top), (right, bottom))) 
 
 getEmptyCells :: GameState -> Position -> GameState
 getEmptyCells g@GameState{_grid=grid, _panel=panel, _visibility=vis, _markers=markers, _score=score} pos
-    | member pos vis ||
-      not (inBounds pos panel) = g
-    | member pos markers       = updateMarker g pos
+    | not (inBounds pos panel)
+      || member pos vis
+      || member pos markers    = g
     | t > 0                    = g{_visibility=newVis, _score=score + t}
     | otherwise                = foldl getEmptyCells g{_visibility=newVis} (surroundingPositions pos)
     where
@@ -188,25 +191,23 @@ getEmptyCells g@GameState{_grid=grid, _panel=panel, _visibility=vis, _markers=ma
 
 updateMarker :: GameState -> Position -> GameState
 updateMarker g@GameState{_grid=grid, _visibility=vis, _markers=markers} pos
-    | notMember pos markers = error "Update marker at a non marker position."
-    | otherwise             = newGameState
+    | size vis == size (_visibility newGameState) = newGameState
+    | otherwise                                   = updateMarker newGameState pos    
         where
-            newMarkers :: Markers
-            newMarkers = insert pos markers
-
             isSatisfied :: Position -> Bool
-            isSatisfied p = (member p vis) && (tallyMines grid p == tallyMarkers newMarkers p)
+            isSatisfied p = (member p vis) && (tallyMines grid p == tallyMarkers markers p)
 
             cells :: [Position]
             cells = concatMap surroundingPositions $ filter isSatisfied (surroundingPositions pos)
 
-            newGameState = foldl clickCellPos g{_markers=newMarkers} cells
+            newGameState :: GameState
+            newGameState = foldl clickCellPos g cells
 
 placeMarker :: GameState -> GameState
 placeMarker g@GameState{_markers=markers, _visibility=vis, _position=pos}
     | member pos vis     = g
     | member pos markers = g{_markers=(delete pos markers)}
-    | otherwise          = updateMarker (g{_markers=insert pos markers}) pos
+    | otherwise          = updateMarker g{_markers=(insert pos markers)} pos
 
 clickCell :: GameState -> GameState
 clickCell g = clickCellPos g (_position g)
