@@ -1,6 +1,7 @@
 module Main(main) where
 
-import Data.Set (Set, empty, insert, delete, member, size)
+import Data.Char (toLower)
+import Data.Set (Set, empty, insert, delete, member, size, toList)
 import Prelude hiding (Either(..))
 import System.Environment (getArgs)
 import System.Random (StdGen, getStdGen, randomRs, randoms, mkStdGen)
@@ -15,7 +16,7 @@ type Position   = (Int, Int)
 type Score      = Int
 data PlayState  = Alive | Dead deriving Eq
 type Panel      = (Position, Position) -- The panel is used as limits for recursing down empty cells (It is supposed to be bigger than the terminal)
-data Option     = Default | AutoMarker deriving (Eq, Ord)
+data Option     = Adventure | AutoOpen deriving (Eq, Ord, Show)
 type Options    = Set Option
 
 data Move       = Up | Down | Left | Right
@@ -64,7 +65,7 @@ showCell GameState{_grid=grid, _visibility=vis, _markers=mar, _playState=playsta
     | playstate == Dead &&
       currentCell == Mine  = drawMine
     | member pos vis       = showCell' currentCell (tallyMines grid pos)
-    | otherwise            = drawString " "
+    | otherwise            = do setColor $ pal!!0; drawString " "
     where
         currentCell :: Cell
         currentCell = getCell grid pos
@@ -94,9 +95,10 @@ createGameStates gen opts =  map (\g -> GameState
     }) ((randoms gen) :: [Int])
 
 argsToOptions :: [String] -> Options
-argsToOptions []          = empty
-argsToOptions ("auto":xs) = insert AutoMarker $ argsToOptions xs
-argsToOptions (_:xs)      = argsToOptions xs
+argsToOptions []               = empty
+argsToOptions ("auto":xs)      = insert AutoOpen $ argsToOptions xs
+argsToOptions ("adventure":xs) = insert Adventure $ argsToOptions xs
+argsToOptions (_:xs)           = argsToOptions xs
 
 main :: IO ()
 main = do
@@ -126,10 +128,10 @@ main = do
                     True  -> restartLoop f gs
                     False -> return ()
 
-        restartLoop (doUpdate w palette) (createGameStates gen $ argsToOptions args)
+        restartLoop (doUpdate w palette) (createGameStates gen $ argsToOptions $ map (map toLower) args)
 
 doUpdate :: Window -> [ColorID] -> GameState -> Curses Bool
-doUpdate w palette gamestate@(GameState _ _ _ (x, y) score playstate _ _) = do
+doUpdate w palette gamestate@(GameState _ _ _ (x, y) score playstate _ opts) = do
     updateWindow w $ do
         (sizeY, sizeX) <- windowSize
         let (sizeX', sizeY') = (fromInteger sizeX, fromInteger sizeY)
@@ -144,7 +146,7 @@ doUpdate w palette gamestate@(GameState _ _ _ (x, y) score playstate _ _) = do
         drawLineH (Just glyphLineH) sizeX
         moveCursor (sizeY - 1) 0
         setColor $ palette!!0
-        drawString $ take (sizeX'-1) $ case playstate of
+        drawString $ take (sizeX'-1) $ concat [show o ++ " | " | o<-toList opts] ++ case playstate of
             Alive -> "Score: " ++ show score ++ repeat ' '
             Dead  -> "Game over! Your score is: " ++ show score ++ repeat ' '
         moveCursor (div sizeY 2) (div sizeX 2)
@@ -219,7 +221,7 @@ placeMarker :: GameState -> GameState
 placeMarker g@GameState{_markers=markers, _visibility=vis, _position=pos, _options=opts}
     | member pos vis         = g
     | member pos markers     = g{_markers=(delete pos markers)}
-    | member AutoMarker opts = updateMarker newGameState pos 
+    | member AutoOpen opts = updateMarker newGameState pos 
     | otherwise              = newGameState
     where
         newGameState :: GameState
