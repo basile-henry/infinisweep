@@ -6,6 +6,7 @@ import Prelude hiding (Either(..))
 import qualified Prelude as P
 import System.Environment (getArgs)
 import System.IO.Error (tryIOError)
+import qualified System.IO.Strict as S
 import System.Random (StdGen, getStdGen, randomRs, randoms, mkStdGen)
 import UI.NCurses (Update,  Window, Curses, Color(..), ColorID, Event(..), Key(..), moveCursor, setColor, drawString, drawLineH, runCurses, setEcho, defaultWindow, newColorID, updateWindow, windowSize, glyphLineH, render, getEvent)
 
@@ -82,7 +83,7 @@ showCell GameState{_grid=grid, _visibility=vis, _markers=mar, _playState=playsta
         drawMine = do setColor $ pal!!8; drawString "X";
 
 randomGrid :: StdGen -> Grid
-randomGrid gen = [map (\n -> if n<1 then Mine else Empty) $ randomRs (0, 4 :: Int) (mkStdGen g) | g<-(randoms gen) :: [Int]]
+randomGrid gen = [map (\n -> if n<1 then Mine else Empty) $ randomRs (0, 5 :: Int) (mkStdGen g) | g<-(randoms gen) :: [Int]]
 
 createGameStates :: StdGen -> Options -> Score -> [GameState]
 createGameStates gen opts highscore =  map (\g -> GameState 
@@ -109,7 +110,7 @@ main = do
     args <- getArgs
     gen <- getStdGen
 
-    strOrExc <- tryIOError $ readFile highscorePath
+    strOrExc <- tryIOError $ S.readFile highscorePath
     let
         highscore = case strOrExc of
             P.Left  _        -> 0
@@ -164,7 +165,7 @@ doUpdate w palette gamestate@GameState{_position=(x, y), _score=score, _highscor
         moveCursor (sizeY - 1) 0
         setColor $ palette!!0
         drawString $ take (sizeX'-1) $ concat [show o ++ " | " | o <- toList opts] ++ case playstate of
-            Alive -> "Score: " ++ show score ++ " " ++ show highscore ++ repeat ' '
+            Alive -> "Score: " ++ show score ++ repeat ' '
             Dead  -> "Game over! Your score is: " ++ show score ++ " | Highscore is: " ++ show highscore ++ repeat ' '
         moveCursor (div sizeY 2) (div sizeX 2)
     render

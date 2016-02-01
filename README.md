@@ -17,11 +17,13 @@ cabal build
 ```
 
 With these `options`:
--`auto` -- When placing markers, the cells that are satisfied (number in the cell corresponds to the number of markers around it) will be opened automagically!
+
+- `auto` -- When placing markers, the cells that are satisfied (number in the cell corresponds to the number of markers around it) will be opened automagically!
 -`adventure` -- Play in adventure mode (coming soon)
 
 ## How to play
 When a cell in the grid is opened it either contains a mine and therefore explodes (Game Over) or will show the player the number of mines in the neighbouring cells (there are 8 neighbouring cells).
+
 - To move around the grid use the arrow keys (←, ↑, ↓, →).
 - Press space (' ') to open a cell.
 - Press M to mark a cell (if you think it contains a mine).
