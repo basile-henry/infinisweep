@@ -1,6 +1,7 @@
 module Main(main) where
 
 import Data.Char (toLower)
+import Data.List (isPrefixOf)
 import Data.Set (Set, empty, insert, delete, member, size, toList)
 import Prelude hiding (Either(..))
 import qualified Prelude as P
@@ -19,7 +20,7 @@ type Position   = (Int, Int)
 type Score      = Int
 data PlayState  = Alive | Dead deriving Eq
 type Panel      = (Position, Position) -- The panel is used as limits for recursing down empty cells (It is supposed to be bigger than the terminal)
-data Option     = Adventure | AutoOpen deriving (Eq, Ord, Show)
+data Option     = Adventure | AutoOpen | Density Int deriving (Eq, Ord, Show)
 type Options    = Set Option
 
 data Move       = Up | Down | Left | Right
@@ -82,13 +83,13 @@ showCell GameState{_grid=grid, _visibility=vis, _markers=mar, _playState=playsta
         drawMine :: Update ()
         drawMine = do setColor $ pal!!8; drawString "X";
 
-randomGrid :: StdGen -> Grid
-randomGrid gen = [map (\n -> if n<1 then Mine else Empty) $ randomRs (0, 5 :: Int) (mkStdGen g) | g<-(randoms gen) :: [Int]]
+randomGrid :: StdGen -> Int -> Grid
+randomGrid gen den = [map (\n -> if n<den then Mine else Empty) $ randomRs (0, 99 :: Int) (mkStdGen g) | g<-(randoms gen) :: [Int]]
 
 createGameStates :: StdGen -> Options -> Score -> [GameState]
 createGameStates gen opts highscore =  map (\g -> GameState 
     {
-        _grid       = randomGrid (mkStdGen g),
+        _grid       = randomGrid (mkStdGen g) (density $ toList opts),
         _visibility = empty,
         _markers    = empty,
         _position   = (0, 0),
@@ -98,12 +99,19 @@ createGameStates gen opts highscore =  map (\g -> GameState
         _panel      = ((-150, -50), (150, 50)),
         _options    = opts
     }) ((randoms gen) :: [Int])
+    where
+        density :: [Option] -> Int
+        density []            = 20
+        density (Density x:_) = x
+        density (_:xs)        = density xs
 
 argsToOptions :: [String] -> Options
 argsToOptions []               = empty
 argsToOptions ("auto":xs)      = insert AutoOpen $ argsToOptions xs
 argsToOptions ("adventure":xs) = insert Adventure $ argsToOptions xs
-argsToOptions (_:xs)           = argsToOptions xs
+argsToOptions (x:xs)
+    | isPrefixOf "density=" x  = insert (Density $ max 0 $ min 100 $ read $ snd $ splitAt 8 x) $ argsToOptions xs
+    | otherwise                = argsToOptions xs
 
 main :: IO ()
 main = do
