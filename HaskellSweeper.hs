@@ -3,7 +3,9 @@ module Main(main) where
 import Data.Char (toLower)
 import Data.Set (Set, empty, insert, delete, member, size, toList)
 import Prelude hiding (Either(..))
+import qualified Prelude as P
 import System.Environment (getArgs)
+import System.IO.Error (tryIOError)
 import System.Random (StdGen, getStdGen, randomRs, randoms, mkStdGen)
 import UI.NCurses (Update,  Window, Curses, Color(..), ColorID, Event(..), Key(..), moveCursor, setColor, drawString, drawLineH, runCurses, setEcho, defaultWindow, newColorID, updateWindow, windowSize, glyphLineH, render, getEvent)
 
@@ -27,6 +29,7 @@ data GameState  = GameState
         _markers    :: Markers,
         _position   :: Position,
         _score      :: Score,
+        _highscore  :: Score,
         _playState  :: PlayState,
         _panel      :: Panel,
         _options    :: Options
@@ -81,14 +84,15 @@ showCell GameState{_grid=grid, _visibility=vis, _markers=mar, _playState=playsta
 randomGrid :: StdGen -> Grid
 randomGrid gen = [map (\n -> if n<1 then Mine else Empty) $ randomRs (0, 4 :: Int) (mkStdGen g) | g<-(randoms gen) :: [Int]]
 
-createGameStates :: StdGen -> Options -> [GameState]
-createGameStates gen opts =  map (\g -> GameState 
+createGameStates :: StdGen -> Options -> Score -> [GameState]
+createGameStates gen opts highscore =  map (\g -> GameState 
     {
         _grid       = randomGrid (mkStdGen g),
         _visibility = empty,
         _markers    = empty,
         _position   = (0, 0),
         _score      = 0,
+        _highscore  = highscore,
         _playState  = Alive,
         _panel      = ((-150, -50), (150, 50)),
         _options    = opts
@@ -104,7 +108,14 @@ main :: IO ()
 main = do
     args <- getArgs
     gen <- getStdGen
-    runCurses $ do
+
+    strOrExc <- tryIOError $ readFile highscorePath
+    let
+        highscore = case strOrExc of
+            P.Left  _        -> 0
+            P.Right contents -> read contents
+
+    new_highscore <- runCurses $ do
         setEcho False
         w <- defaultWindow
         palette <- sequence
@@ -121,17 +132,23 @@ main = do
             ]
 
         let
-            restartLoop :: (a -> Curses Bool) -> [a] -> Curses ()
-            restartLoop f (g:gs) = do
+            restartLoop :: (GameState -> Curses (Score, Bool)) -> [GameState] -> Curses Score
+            restartLoop f (g:ng:gs) = do
                 quit <- f g
                 case quit of
-                    True  -> restartLoop f gs
-                    False -> return ()
+                    (hs, True)  -> restartLoop f (ng{_highscore=hs}:gs)
+                    (hs, False) -> return hs
 
-        restartLoop (doUpdate w palette) (createGameStates gen $ argsToOptions $ map (map toLower) args)
+        restartLoop (doUpdate w palette) (createGameStates gen (argsToOptions $ map (map toLower) args) highscore)
 
-doUpdate :: Window -> [ColorID] -> GameState -> Curses Bool
-doUpdate w palette gamestate@(GameState _ _ _ (x, y) score playstate _ opts) = do
+    writeFile highscorePath $ show new_highscore
+
+    where
+        highscorePath :: FilePath
+        highscorePath = ".HaskellSweeperHighscore"
+
+doUpdate :: Window -> [ColorID] -> GameState -> Curses (Score, Bool)
+doUpdate w palette gamestate@GameState{_position=(x, y), _score=score, _highscore=highscore, _playState=playstate, _options=opts} = do
     updateWindow w $ do
         (sizeY, sizeX) <- windowSize
         let (sizeX', sizeY') = (fromInteger sizeX, fromInteger sizeY)
@@ -146,28 +163,27 @@ doUpdate w palette gamestate@(GameState _ _ _ (x, y) score playstate _ opts) = d
         drawLineH (Just glyphLineH) sizeX
         moveCursor (sizeY - 1) 0
         setColor $ palette!!0
-        drawString $ take (sizeX'-1) $ concat [show o ++ " | " | o<-toList opts] ++ case playstate of
-            Alive -> "Score: " ++ show score ++ repeat ' '
-            Dead  -> "Game over! Your score is: " ++ show score ++ repeat ' '
+        drawString $ take (sizeX'-1) $ concat [show o ++ " | " | o <- toList opts] ++ case playstate of
+            Alive -> "Score: " ++ show score ++ " " ++ show highscore ++ repeat ' '
+            Dead  -> "Game over! Your score is: " ++ show score ++ " | Highscore is: " ++ show highscore ++ repeat ' '
         moveCursor (div sizeY 2) (div sizeX 2)
-        -- setTouched True
     render
     inputUpdate w palette gamestate
 
-inputUpdate :: Window -> [ColorID] -> GameState -> Curses Bool
+inputUpdate :: Window -> [ColorID] -> GameState -> Curses (Score, Bool)
 inputUpdate w palette gamestate = do
         ev  <- getEvent w (Just 100)
         case ev of
             Nothing  -> doUpdate w palette (gamestate)
             Just ev' -> case ev' of
-                EventCharacter 'q' -> return False
-                EventCharacter 'Q' -> return False
-                EventCharacter 'r' -> return True
-                EventCharacter 'R' -> return True
+                EventCharacter 'q' -> return (_highscore gamestate, False)
+                EventCharacter 'Q' -> return (_highscore gamestate, False)
+                EventCharacter 'r' -> return (_highscore gamestate, True)
+                EventCharacter 'R' -> return (_highscore gamestate, True)
                 key                -> doUpdate w palette (stepGameWorld key gamestate)
 
 movePosition :: GameState -> Move -> GameState
-movePosition g@(GameState grid vis _ (x, y) _ _ ((left, top), (right, bottom)) _) move =
+movePosition g@GameState{_grid=grid, _visibility=vis, _position=(x, y), _panel=((left, top), (right, bottom))} move =
     newGameState{_position = (x+dx, y+dy)}
     where
         (dx, dy) = case move of
@@ -189,11 +205,11 @@ movePosition g@(GameState grid vis _ (x, y) _ _ ((left, top), (right, bottom)) _
         newGameState = foldl getEmptyCells g{_panel=newPanel} cells
 
 getEmptyCells :: GameState -> Position -> GameState
-getEmptyCells g@GameState{_grid=grid, _panel=panel, _visibility=vis, _markers=markers, _score=score} pos
+getEmptyCells g@GameState{_grid=grid, _panel=panel, _visibility=vis, _markers=markers, _score=score, _highscore=highscore} pos
     | not (inBounds pos panel)
       || member pos vis
       || member pos markers    = g
-    | t > 0                    = g{_visibility=newVis, _score=score + t}
+    | t > 0                    = g{_visibility=newVis, _score=score + t, _highscore=max highscore (score + t)}
     | otherwise                = foldl getEmptyCells g{_visibility=newVis} (surroundingPositions pos)
     where
         t :: Int
@@ -219,10 +235,10 @@ updateMarker g@GameState{_visibility=vis} pos
 
 placeMarker :: GameState -> GameState
 placeMarker g@GameState{_markers=markers, _visibility=vis, _position=pos, _options=opts}
-    | member pos vis         = g
-    | member pos markers     = g{_markers=(delete pos markers)}
+    | member pos vis       = g
+    | member pos markers   = g{_markers=(delete pos markers)}
     | member AutoOpen opts = updateMarker newGameState pos 
-    | otherwise              = newGameState
+    | otherwise            = newGameState
     where
         newGameState :: GameState
         newGameState = g{_markers=(insert pos markers)}
