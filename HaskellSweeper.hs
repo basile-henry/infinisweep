@@ -2,20 +2,23 @@ module Main(main) where
 
 import Data.Set (Set, empty, insert, delete, member, size)
 import Prelude hiding (Either(..))
+import System.Environment (getArgs)
 import System.Random (StdGen, getStdGen, randomRs, randoms, mkStdGen)
 import UI.NCurses (Update,  Window, Curses, Color(..), ColorID, Event(..), Key(..), moveCursor, setColor, drawString, drawLineH, runCurses, setEcho, defaultWindow, newColorID, updateWindow, windowSize, glyphLineH, render, getEvent)
 
 type Grid = [[Cell]]
-
 data Cell = Empty | Mine deriving Eq
 
 type Visibility = Set Position
 type Markers    = Set Position
 type Position   = (Int, Int)
-data Move       = Up | Down | Left | Right
-type Panel      = (Position, Position) -- The panel is used as limits for recursing down empty cells (It is supposed to be bigger than the terminal)
 type Score      = Int
 data PlayState  = Alive | Dead deriving Eq
+type Panel      = (Position, Position) -- The panel is used as limits for recursing down empty cells (It is supposed to be bigger than the terminal)
+data Option     = Default | AutoMarker deriving (Eq, Ord)
+type Options    = Set Option
+
+data Move       = Up | Down | Left | Right
 data GameState  = GameState
     {
         _grid       :: Grid,
@@ -24,7 +27,8 @@ data GameState  = GameState
         _position   :: Position,
         _score      :: Score,
         _playState  :: PlayState,
-        _panel      :: Panel
+        _panel      :: Panel,
+        _options    :: Options
     }
 
 -- List indeces are like this: [0, 1, -1, 2, -2..]
@@ -76,8 +80,8 @@ showCell GameState{_grid=grid, _visibility=vis, _markers=mar, _playState=playsta
 randomGrid :: StdGen -> Grid
 randomGrid gen = [map (\n -> if n<1 then Mine else Empty) $ randomRs (0, 4 :: Int) (mkStdGen g) | g<-(randoms gen) :: [Int]]
 
-createGameStates :: StdGen -> [GameState]
-createGameStates gen =  map (\g -> GameState 
+createGameStates :: StdGen -> Options -> [GameState]
+createGameStates gen opts =  map (\g -> GameState 
     {
         _grid       = randomGrid (mkStdGen g),
         _visibility = empty,
@@ -85,11 +89,18 @@ createGameStates gen =  map (\g -> GameState
         _position   = (0, 0),
         _score      = 0,
         _playState  = Alive,
-        _panel      = ((-150, -50), (150, 50))
+        _panel      = ((-150, -50), (150, 50)),
+        _options    = opts
     }) ((randoms gen) :: [Int])
 
+argsToOptions :: [String] -> Options
+argsToOptions []          = empty
+argsToOptions ("auto":xs) = insert AutoMarker $ argsToOptions xs
+argsToOptions (_:xs)      = argsToOptions xs
+
 main :: IO ()
-main = do 
+main = do
+    args <- getArgs
     gen <- getStdGen
     runCurses $ do
         setEcho False
@@ -115,10 +126,10 @@ main = do
                     True  -> restartLoop f gs
                     False -> return ()
 
-        restartLoop (doUpdate w palette) (createGameStates gen)
+        restartLoop (doUpdate w palette) (createGameStates gen $ argsToOptions args)
 
 doUpdate :: Window -> [ColorID] -> GameState -> Curses Bool
-doUpdate w palette gamestate@(GameState _ _ _ (x, y) score playstate _) = do
+doUpdate w palette gamestate@(GameState _ _ _ (x, y) score playstate _ _) = do
     updateWindow w $ do
         (sizeY, sizeX) <- windowSize
         let (sizeX', sizeY') = (fromInteger sizeX, fromInteger sizeY)
@@ -154,7 +165,7 @@ inputUpdate w palette gamestate = do
                 key                -> doUpdate w palette (stepGameWorld key gamestate)
 
 movePosition :: GameState -> Move -> GameState
-movePosition g@(GameState grid vis _ (x, y) _ _ ((left, top), (right, bottom))) move =
+movePosition g@(GameState grid vis _ (x, y) _ _ ((left, top), (right, bottom)) _) move =
     newGameState{_position = (x+dx, y+dy)}
     where
         (dx, dy) = case move of
@@ -189,25 +200,30 @@ getEmptyCells g@GameState{_grid=grid, _panel=panel, _visibility=vis, _markers=ma
         newVis :: Visibility
         newVis = insert pos vis
 
+
+isSatisfied :: GameState -> Position -> Bool
+isSatisfied GameState{_grid=grid, _markers=markers} p = tallyMines grid p == tallyMarkers markers p
+
 updateMarker :: GameState -> Position -> GameState
-updateMarker g@GameState{_grid=grid, _visibility=vis, _markers=markers} pos
+updateMarker g@GameState{_visibility=vis} pos
     | size vis == size (_visibility newGameState) = newGameState
     | otherwise                                   = updateMarker newGameState pos    
         where
-            isSatisfied :: Position -> Bool
-            isSatisfied p = (member p vis) && (tallyMines grid p == tallyMarkers markers p)
-
             cells :: [Position]
-            cells = concatMap surroundingPositions $ filter isSatisfied (surroundingPositions pos)
+            cells = concatMap surroundingPositions $ filter (\p -> (member p vis) && (isSatisfied g p)) (surroundingPositions pos)
 
             newGameState :: GameState
             newGameState = foldl clickCellPos g cells
 
 placeMarker :: GameState -> GameState
-placeMarker g@GameState{_markers=markers, _visibility=vis, _position=pos}
-    | member pos vis     = g
-    | member pos markers = g{_markers=(delete pos markers)}
-    | otherwise          = updateMarker g{_markers=(insert pos markers)} pos
+placeMarker g@GameState{_markers=markers, _visibility=vis, _position=pos, _options=opts}
+    | member pos vis         = g
+    | member pos markers     = g{_markers=(delete pos markers)}
+    | member AutoMarker opts = updateMarker newGameState pos 
+    | otherwise              = newGameState
+    where
+        newGameState :: GameState
+        newGameState = g{_markers=(insert pos markers)}
 
 clickCell :: GameState -> GameState
 clickCell g = clickCellPos g (_position g)
@@ -215,8 +231,14 @@ clickCell g = clickCellPos g (_position g)
 clickCellPos :: GameState -> Position -> GameState
 clickCellPos g@GameState{_grid=grid, _visibility=vis, _markers=markers} pos
     | member pos markers       = g
+    | member pos vis           = updatedMarkers
     | getCell grid pos == Mine = g{_visibility=(insert pos vis), _playState=Dead}
     | otherwise                = getEmptyCells g pos
+    where
+        updatedMarkers :: GameState
+        updatedMarkers = if (isSatisfied g pos)
+            then foldl clickCellPos g (filter (\p -> not $ member p vis) (surroundingPositions pos))
+            else g
 
 stepGameWorld :: Event -> GameState -> GameState
 stepGameWorld (EventSpecialKey KeyUpArrow)    gamestate                    = movePosition gamestate Up
@@ -224,11 +246,11 @@ stepGameWorld (EventSpecialKey KeyDownArrow)  gamestate                    = mov
 stepGameWorld (EventSpecialKey KeyLeftArrow)  gamestate                    = movePosition gamestate Left
 stepGameWorld (EventSpecialKey KeyRightArrow) gamestate                    = movePosition gamestate Right
 stepGameWorld _                               g@GameState{_playState=Dead} = g -- If not playing, player can move around but not "play" (open cells)
-stepGameWorld (EventCharacter 'm')            gamestate                    = placeMarker gamestate
-stepGameWorld (EventCharacter 'M')            gamestate                    = placeMarker gamestate
-stepGameWorld (EventCharacter ' ')            gamestate                    = clickCell gamestate
-stepGameWorld (EventSpecialKey KeyEnter)      gamestate                    = clickCell gamestate
-stepGameWorld _ gamestate = gamestate
+stepGameWorld (EventCharacter 'm')            gamestate                    = placeMarker  gamestate
+stepGameWorld (EventCharacter 'M')            gamestate                    = placeMarker  gamestate
+stepGameWorld (EventCharacter ' ')            gamestate                    = clickCell    gamestate
+stepGameWorld (EventSpecialKey KeyEnter)      gamestate                    = clickCell    gamestate
+stepGameWorld _                               gamestate                    = gamestate
 
 -- animate :: GameState -> GameState
 -- animate = animate' 10
