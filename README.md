@@ -3,6 +3,8 @@ HaskellSweeper is a clone of the famous [Minesweeper](https://en.wikipedia.org/w
 
 This game is played in a terminal using ncurses to render it.
 
+![HaskellSweeper game screenshot](screenshot.png)
+
 ## How to build
 The building process should be pretty straight forward. Using the cabal build file it goes as follows:
 ```bash
