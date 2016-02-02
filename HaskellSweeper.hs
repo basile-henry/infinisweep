@@ -37,7 +37,7 @@ data GameState  = GameState
         _options    :: Options
     }
 
--- List indeces are like this: [0, 1, -1, 2, -2..]
+-- List indices are like this: [0, 1, -1, 2, -2..]
 getIndex :: [a] -> Int -> a
 getIndex l i
     | i <= 0    = l!!(-2*i)
@@ -63,10 +63,7 @@ showGrid gamestate ((left, top), (right, bottom)) (sx, sy) pal = sequence_ [do m
 
 showCell :: GameState -> Position -> [ColorID] -> Update ()
 showCell GameState{_grid=grid, _visibility=vis, _markers=mar, _playState=playstate} pos pal
-    | playstate == Dead &&
-      member pos mar &&
-      currentCell == Empty = do setColor $ pal!!2; drawString "!";
-    | member pos mar       = do setColor $ pal!!8; drawString "!";
+    | member pos mar       = do markerColor playstate currentCell; drawString "#";
     | playstate == Dead &&
       currentCell == Mine  = drawMine
     | member pos vis       = showCell' currentCell (tallyMines grid pos)
@@ -82,6 +79,10 @@ showCell GameState{_grid=grid, _visibility=vis, _markers=mar, _playState=playsta
 
         drawMine :: Update ()
         drawMine = do setColor $ pal!!8; drawString "X";
+
+        markerColor :: PlayState -> Cell -> Update ()
+        markerColor Dead Empty = setColor $ pal!!2
+        markerColor _    _     = setColor $ pal!!8
 
 randomGrid :: StdGen -> Int -> Grid
 randomGrid gen den = [map (\n -> if n<den then Mine else Empty) $ randomRs (0, 99 :: Int) (mkStdGen g) | g<-(randoms gen) :: [Int]]
@@ -115,14 +116,16 @@ argsToOptions (x:xs)
 
 main :: IO ()
 main = do
-    args <- getArgs
     gen <- getStdGen
-
     strOrExc <- tryIOError $ S.readFile highscorePath
+    args <- getArgs
+
     let
         highscore = case strOrExc of
             P.Left  _        -> 0
             P.Right contents -> read contents
+            
+        options = argsToOptions $ map (map toLower) args
 
     new_highscore <- runCurses $ do
         setEcho False
@@ -148,7 +151,7 @@ main = do
                     (hs, True)  -> restartLoop f (ng{_highscore=hs}:gs)
                     (hs, False) -> return hs
 
-        restartLoop (doUpdate w palette) (createGameStates gen (argsToOptions $ map (map toLower) args) highscore)
+        restartLoop (doUpdate w palette) (createGameStates gen options highscore)
 
     writeFile highscorePath $ show new_highscore
 

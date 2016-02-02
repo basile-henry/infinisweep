@@ -29,4 +29,5 @@ When a cell in the grid is opened it either contains a mine and therefore explod
 - Press space (' ') to open a cell.
 - Press M to mark a cell (if you think it contains a mine).
 - Press Q to quit the game.
+- Press R to start a new game.
 

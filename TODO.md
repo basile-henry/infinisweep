@@ -3,7 +3,7 @@
 - (DONE) When opening empty cells stop at the edge of the terminal (and update on move/resize)
 - (DONE) Mark cells with mine markers (▲) -- toggleable with a key (say "M"), when marked the cell cannot be opened
 - (DONE) problem when resizing terminal too small: it breaks ncurses and exits
-- when the number of markers matches the current cell's number: possibility to open neighbouring cells
+- (DONE) when the number of markers matches the current cell's number: possibility to open neighbouring cells
 - stop the cursor from blinking
 - possiblity to position the cursor not in the center (maybe with a margin of 5 cells to the sides)
 - UI colors/characters
