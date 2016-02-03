@@ -124,7 +124,7 @@ main = do
         highscore = case strOrExc of
             P.Left  _        -> 0
             P.Right contents -> read contents
-            
+
         options = argsToOptions $ map (map toLower) args
 
     new_highscore <- runCurses $ do
@@ -272,12 +272,22 @@ clickCellPos g@GameState{_grid=grid, _visibility=vis, _markers=markers} pos
 
 stepGameWorld :: Event -> GameState -> GameState
 stepGameWorld (EventSpecialKey KeyUpArrow)    gamestate                    = movePosition gamestate Up
+stepGameWorld (EventCharacter  'w')           gamestate                    = movePosition gamestate Up
+stepGameWorld (EventCharacter  'W')           gamestate                    = movePosition gamestate Up
 stepGameWorld (EventSpecialKey KeyDownArrow)  gamestate                    = movePosition gamestate Down
+stepGameWorld (EventCharacter  's')           gamestate                    = movePosition gamestate Down
+stepGameWorld (EventCharacter  'S')           gamestate                    = movePosition gamestate Down
 stepGameWorld (EventSpecialKey KeyLeftArrow)  gamestate                    = movePosition gamestate Left
+stepGameWorld (EventCharacter  'a')           gamestate                    = movePosition gamestate Left
+stepGameWorld (EventCharacter  'A')           gamestate                    = movePosition gamestate Left
 stepGameWorld (EventSpecialKey KeyRightArrow) gamestate                    = movePosition gamestate Right
+stepGameWorld (EventCharacter  'd')           gamestate                    = movePosition gamestate Right
+stepGameWorld (EventCharacter  'D')           gamestate                    = movePosition gamestate Right
 stepGameWorld _                               g@GameState{_playState=Dead} = g -- If not playing, player can move around but not "play" (open cells)
 stepGameWorld (EventCharacter 'm')            gamestate                    = placeMarker  gamestate
 stepGameWorld (EventCharacter 'M')            gamestate                    = placeMarker  gamestate
+stepGameWorld (EventCharacter 'e')            gamestate                    = placeMarker  gamestate
+stepGameWorld (EventCharacter 'E')            gamestate                    = placeMarker  gamestate
 stepGameWorld (EventCharacter ' ')            gamestate                    = clickCell    gamestate
 stepGameWorld (EventSpecialKey KeyEnter)      gamestate                    = clickCell    gamestate
 stepGameWorld _                               gamestate                    = gamestate
