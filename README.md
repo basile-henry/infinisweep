@@ -1,14 +1,27 @@
 # HaskellSweeper
-HaskellSweeper is a clone of the famous [Minesweeper](https://en.wikipedia.org/wiki/Minesweeper_%28video_game%29) game written in Haskell. If features an infinit grid which means that a game could (in theory) go on forever.
+HaskellSweeper is a clone of the famous [Minesweeper](https://en.wikipedia.org/wiki/Minesweeper_%28video_game%29) game written in Haskell. If features an infinite grid which means that a game could (in theory) go on forever.
 
 This game is played in a terminal using ncurses to render it.
 
 ![HaskellSweeper game screenshot](screenshot.png)
 
 ## How to build
-The building process should be pretty straight forward. Using the cabal build file it goes as follows:
+The building process has been tested on Ubuntu 14.04 and Linux Mint 17.3:
 ```sh
-sudo apt-get install happy alex c2hs libncursesw5-dev libghc-language-c-dev
+sudo apt-get install happy alex libncursesw5-dev libghc-language-c-dev
+```
+All these dependencies are needed for the ncurses library we are using.
+We also need c2hs (but the version in Ubuntu's repos is too old so we'll use cabal to install it instead). If you don't already have cabal: `sudo apt-get install cabal-install && cabal update`
+```sh
+cabal install c2hs
+```
+And because by default Ubuntu doesn't have the binaries installed by cabal in the path (you might want to put this in .bashrc, .zshrc or similar):
+```sh
+export PATH=~/.cabal/bin:$PATH
+```
+
+At this point it should be pretty straight forward:
+```sh
 cabal install --only-dependencies
 cabal configure
 cabal build
