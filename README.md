@@ -6,6 +6,7 @@ This game is played in a terminal using ncurses to render it.
 ![HaskellSweeper game screenshot](screenshot.png)
 
 ## How to build
+### Cabal
 The building process has been tested on Ubuntu 14.04 and Linux Mint 17.3:
 ```sh
 sudo apt-get install happy alex libncursesw5-dev libghc-language-c-dev
@@ -27,9 +28,23 @@ cabal configure
 cabal build
 ```
 
+### Stack
+If you don't have Stack, get it [here](http://docs.haskellstack.org/en/stable/README.html).
+The building process has been tested on OSX 10.11:
+```sh
+stack setup
+stack build
+```
+
 ## How to run the game
+### Cabal
 ```sh
 ./HaskellSweeper [options]
+```
+
+### Stack
+```sh
+stack exec -- HaskellSweeper [options]
 ```
 
 With these `options`:
