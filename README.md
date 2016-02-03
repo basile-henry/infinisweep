@@ -8,6 +8,7 @@ This game is played in a terminal using ncurses to render it.
 ## How to build
 The building process should be pretty straight forward. Using the cabal build file it goes as follows:
 ```sh
+sudo apt-get install happy alex c2hs libncursesw5-dev libghc-language-c-dev
 cabal install --only-dependencies
 cabal configure
 cabal build
@@ -28,8 +29,9 @@ With these `options`:
 When a cell in the grid is opened it either contains a mine and therefore explodes (Game Over) or will show the player the number of mines in the neighbouring cells (there are 8 neighbouring cells).
 
 - To move around the grid use the arrow keys (←, ↑, ↓, →).
-- Press space (' ') to open a cell.
+- Press space to open a cell.
 - Press M to mark a cell (if you think it contains a mine).
 - Press Q to quit the game.
 - Press R to start a new game.
 
+If an open cell is satisfied (the number of mines the cell indicates matches the number of markers) you can click it (with space) and it will open all the remaining closed cells surrounding it that aren't marked. If you select the `auto` mode this behaviour is completely automated.
