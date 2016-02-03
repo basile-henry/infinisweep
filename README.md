@@ -7,14 +7,14 @@ This game is played in a terminal using ncurses to render it.
 
 ## How to build
 The building process should be pretty straight forward. Using the cabal build file it goes as follows:
-```bash
-cabal install c2hs alex language-c ncurses
+```sh
+cabal install --only-dependencies
 cabal configure
 cabal build
 ```
 
 ## How to run the game
-```bash
+```sh
 ./HaskellSweeper [options]
 ```
 

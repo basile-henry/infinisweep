@@ -21,8 +21,12 @@ executable HaskellSweeper
   -- other-extensions:    
   build-depends:       base >=4.6 && <4.9,
                        containers,
-                       ncurses,
                        random,
-                       strict
+                       strict,
+                       happy,
+                       alex,
+                       language-c,
+                       c2hs,
+                       ncurses
 
   default-language:    Haskell2010
