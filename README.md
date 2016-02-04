@@ -1,5 +1,5 @@
 # HaskellSweeper
-HaskellSweeper is a clone of the famous [Minesweeper](https://en.wikipedia.org/wiki/Minesweeper_%28video_game%29) game written in Haskell. If features an infinite grid which means that a game could (in theory) go on forever.
+HaskellSweeper is a clone of the famous [Minesweeper](https://en.wikipedia.org/wiki/Minesweeper_%28video_game%29) game written in Haskell. It features an infinite grid which means that a game could (in theory) go on forever.
 
 This game is played in a terminal using ncurses to render it.
 
@@ -50,7 +50,7 @@ stack exec -- HaskellSweeper [options]
 With these `options`:
 
 - `auto` -- When placing markers, the cells that are satisfied (number in the cell corresponds to the number of markers around it) will be opened automagically!
-- `density=n` where `n` is a number between 0 and 100 inclusive. It sets the mine density as a percentage.
+- `density n` where `n` is a number between 0 and 100 inclusive. It sets the mine density as a percentage.
 - `adventure` -- Play in adventure mode (coming soon)
 
 ## How to play

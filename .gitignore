@@ -2,7 +2,7 @@
 cabal*
 dist/
 out
-.HaskellSweeperHighscore
+.highscore*
 cabal-dev
 *.o
 *.hi

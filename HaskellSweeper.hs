@@ -1,7 +1,9 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Main(main) where
 
-import Data.Char (toLower)
-import Data.List (isPrefixOf)
+import Data.Char (toLower, isAlphaNum)
+import Data.List (intercalate)
 import Data.Set (Set, empty, insert, delete, member, size, toList)
 import Prelude hiding (Either(..))
 import qualified Prelude as P
@@ -110,22 +112,35 @@ argsToOptions :: [String] -> Options
 argsToOptions []               = empty
 argsToOptions ("auto":xs)      = insert AutoOpen $ argsToOptions xs
 argsToOptions ("adventure":xs) = insert Adventure $ argsToOptions xs
-argsToOptions (x:xs)
-    | isPrefixOf "density=" x  = insert (Density $ max 0 $ min 100 $ read $ snd $ splitAt 8 x) $ argsToOptions xs
-    | otherwise                = argsToOptions xs
+argsToOptions ("density":x:xs) = insert (Density $ read x) $ argsToOptions xs
+argsToOptions (_:xs)           = argsToOptions xs
+
+highscorePath :: Options -> FilePath
+highscorePath options = intercalate "_" $ ".highscore" : (map (filter isAlphaNum . show) $ toList options)
+
+readHighscore :: Options -> IO Score
+readHighscore options = do
+    strOrExc <- tryIOError $ S.readFile $ highscorePath options
+    let
+        getScore :: [String] -> Score
+        getScore []     = 0
+        getScore (x:_) = read $ last $ words x
+
+        highscore = case strOrExc of
+            P.Left  _        -> 0
+            P.Right contents -> getScore $ lines contents
+
+    return highscore
+
+writeHighscore :: Options -> Score -> IO ()
+writeHighscore options score = writeFile (highscorePath options) (show score)
 
 main :: IO ()
 main = do
     gen <- getStdGen
-    strOrExc <- tryIOError $ S.readFile highscorePath
     args <- getArgs
-
-    let
-        highscore = case strOrExc of
-            P.Left  _        -> 0
-            P.Right contents -> read contents
-
-        options = argsToOptions $ map (map toLower) args
+    let options = argsToOptions $ map (map toLower) args
+    highscore <- readHighscore options
 
     new_highscore <- runCurses $ do
         setEcho False
@@ -153,14 +168,11 @@ main = do
 
         restartLoop (doUpdate w palette) (createGameStates gen options highscore)
 
-    writeFile highscorePath $ show new_highscore
+    writeHighscore options new_highscore
 
-    where
-        highscorePath :: FilePath
-        highscorePath = ".HaskellSweeperHighscore"
 
 doUpdate :: Window -> [ColorID] -> GameState -> Curses (Score, Bool)
-doUpdate w palette gamestate@GameState{_position=(x, y), _score=score, _highscore=highscore, _playState=playstate, _options=opts} = do
+doUpdate w palette g@GameState{_position=(x, y), _score=score, _highscore=highscore, _playState=playstate, _options=opts} = do
     updateWindow w $ do
         (sizeY, sizeX) <- windowSize
         let (sizeX', sizeY') = (fromInteger sizeX, fromInteger sizeY)
@@ -169,7 +181,7 @@ doUpdate w palette gamestate@GameState{_position=(x, y), _score=score, _highscor
         let panel = (topLeft, bottomRight)
 
         moveCursor 0 0
-        showGrid gamestate panel (left, top) palette
+        showGrid g panel (left, top) palette
         moveCursor (sizeY - 2) 0
         setColor $ palette!!2
         drawLineH (Just glyphLineH) sizeX
@@ -180,19 +192,18 @@ doUpdate w palette gamestate@GameState{_position=(x, y), _score=score, _highscor
             Dead  -> "Game over! Your score is: " ++ show score ++ " | Highscore is: " ++ show highscore ++ repeat ' '
         moveCursor (div sizeY 2) (div sizeX 2)
     render
-    inputUpdate w palette gamestate
+    inputUpdate w palette g
 
 inputUpdate :: Window -> [ColorID] -> GameState -> Curses (Score, Bool)
-inputUpdate w palette gamestate = do
-        ev  <- getEvent w (Just 100)
-        case ev of
-            Nothing  -> doUpdate w palette (gamestate)
-            Just ev' -> case ev' of
-                EventCharacter 'q' -> return (_highscore gamestate, False)
-                EventCharacter 'Q' -> return (_highscore gamestate, False)
-                EventCharacter 'r' -> return (_highscore gamestate, True)
-                EventCharacter 'R' -> return (_highscore gamestate, True)
-                key                -> doUpdate w palette (stepGameWorld key gamestate)
+inputUpdate w palette g = do
+    getEvent w (Just 100) >>= maybe
+        (doUpdate w palette g)
+        (\case
+            EventCharacter 'q' -> return (_highscore g, False)
+            EventCharacter 'Q' -> return (_highscore g, False)
+            EventCharacter 'r' -> return (_highscore g, True)
+            EventCharacter 'R' -> return (_highscore g, True)
+            key                -> doUpdate w palette (stepGameWorld key g))
 
 movePosition :: GameState -> Move -> GameState
 movePosition g@GameState{_grid=grid, _visibility=vis, _position=(x, y), _panel=((left, top), (right, bottom))} move =
