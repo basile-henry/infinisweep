@@ -285,15 +285,23 @@ stepGameWorld :: Event -> GameState -> GameState
 stepGameWorld (EventSpecialKey KeyUpArrow)    gamestate                    = movePosition gamestate Up
 stepGameWorld (EventCharacter  'w')           gamestate                    = movePosition gamestate Up
 stepGameWorld (EventCharacter  'W')           gamestate                    = movePosition gamestate Up
+stepGameWorld (EventCharacter  'k')           gamestate                    = movePosition gamestate Up
+stepGameWorld (EventCharacter  'K')           gamestate                    = movePosition gamestate Up
 stepGameWorld (EventSpecialKey KeyDownArrow)  gamestate                    = movePosition gamestate Down
 stepGameWorld (EventCharacter  's')           gamestate                    = movePosition gamestate Down
 stepGameWorld (EventCharacter  'S')           gamestate                    = movePosition gamestate Down
+stepGameWorld (EventCharacter  'j')           gamestate                    = movePosition gamestate Down
+stepGameWorld (EventCharacter  'J')           gamestate                    = movePosition gamestate Down
 stepGameWorld (EventSpecialKey KeyLeftArrow)  gamestate                    = movePosition gamestate Left
 stepGameWorld (EventCharacter  'a')           gamestate                    = movePosition gamestate Left
 stepGameWorld (EventCharacter  'A')           gamestate                    = movePosition gamestate Left
+stepGameWorld (EventCharacter  'h')           gamestate                    = movePosition gamestate Left
+stepGameWorld (EventCharacter  'H')           gamestate                    = movePosition gamestate Left
 stepGameWorld (EventSpecialKey KeyRightArrow) gamestate                    = movePosition gamestate Right
 stepGameWorld (EventCharacter  'd')           gamestate                    = movePosition gamestate Right
 stepGameWorld (EventCharacter  'D')           gamestate                    = movePosition gamestate Right
+stepGameWorld (EventCharacter  'l')           gamestate                    = movePosition gamestate Right
+stepGameWorld (EventCharacter  'L')           gamestate                    = movePosition gamestate Right
 stepGameWorld _                               g@GameState{_playState=Dead} = g -- If not playing, player can move around but not "play" (open cells)
 stepGameWorld (EventCharacter 'm')            gamestate                    = placeMarker  gamestate
 stepGameWorld (EventCharacter 'M')            gamestate                    = placeMarker  gamestate
