@@ -56,9 +56,13 @@ With these `options`:
 ## How to play
 When a cell in the grid is opened it either contains a mine and therefore explodes (Game Over) or will show the player the number of mines in the neighbouring cells (there are 8 neighbouring cells).
 
-- To move around the grid use the arrow keys (←, ↑, ↓, →) or W, A, S, D.
-- Press space to open a cell.
-- Press M or E to mark a cell (if you think it contains a mine).
+- To move around the grid use:
+ - Arrow keys (←, ↑, ↓, →)
+ - W, A, S, D
+ - HJKLYUBN (H - left, J - down, K - up, L - right, Y - up left, U - up right, B - down left, N - down right)
+ - Number pad (1 - down left, 2 - down, 3 - down right, 4 - left, 6 - right, 7 - up left, 8 - up, 9 - up right, 5 - mark, 0 - open)
+- Press space or 0 to open a cell.
+- Press M, E, or 5 to mark a cell (if you think it contains a mine).
 - Press Q to quit the game.
 - Press R to start a new game.
 
