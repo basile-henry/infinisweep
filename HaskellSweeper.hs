@@ -224,10 +224,14 @@ movePosition g@GameState{_grid=grid, _visibility=vis, _position=(x, y), _panel=(
 
         cells :: [Position]
         cells = concatMap surroundingPositions $ filter (\p -> (tallyMines grid p == 0) && (member p vis)) $ case move of
-            Up    -> [(i, top)    | i <- [left..right]]
-            Down  -> [(i, bottom) | i <- [left..right]]
-            Left  -> [(left, i)   | i <- [top..bottom]]
-            Right -> [(right, i)  | i <- [top..bottom]]
+            Up        -> [(i, top)    | i <- [left..right]]
+            Down      -> [(i, bottom) | i <- [left..right]]
+            Left      -> [(left, i)   | i <- [top..bottom]]
+            Right     -> [(right, i)  | i <- [top..bottom]]
+            UpLeft    -> [(i, j)      | i <- [left..right], j <- [top..bottom]]
+            UpRight   -> [(i, j)      | i <- [left..right], j <- [top..bottom]]
+            DownLeft  -> [(i, j)      | i <- [left..right], j <- [top..bottom]]
+            DownRight -> [(i, j)      | i <- [left..right], j <- [top..bottom]]
 
         newGameState = foldl getEmptyCells g{_panel=newPanel} cells
 
