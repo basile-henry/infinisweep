@@ -25,7 +25,7 @@ type Panel      = (Position, Position) -- The panel is used as limits for recurs
 data Option     = Adventure | AutoOpen | Density Int deriving (Eq, Ord, Show)
 type Options    = Set Option
 
-data Move       = Up | Down | Left | Right
+data Move       = Up | Down | Left | Right | UpLeft | UpRight | DownLeft | DownRight
 data GameState  = GameState
     {
         _grid       :: Grid,
@@ -210,10 +210,14 @@ movePosition g@GameState{_grid=grid, _visibility=vis, _position=(x, y), _panel=(
     newGameState{_position = (x+dx, y+dy)}
     where
         (dx, dy) = case move of
-            Up    -> ( 0, -1)
-            Down  -> ( 0,  1)
-            Left  -> (-1,  0)
-            Right -> ( 1,  0)
+            Up        -> ( 0, -1)
+            Down      -> ( 0,  1)
+            Left      -> (-1,  0)
+            Right     -> ( 1,  0)
+            UpLeft    -> (-1, -1)
+            UpRight   -> ( 1, -1)
+            DownLeft  -> (-1,  1)
+            DownRight -> ( 1,  1)
 
         newPanel :: Panel
         newPanel = ((left+dx, top+dy), (right+dx, bottom+dy))
@@ -302,6 +306,14 @@ stepGameWorld (EventCharacter  'd')           gamestate                    = mov
 stepGameWorld (EventCharacter  'D')           gamestate                    = movePosition gamestate Right
 stepGameWorld (EventCharacter  'l')           gamestate                    = movePosition gamestate Right
 stepGameWorld (EventCharacter  'L')           gamestate                    = movePosition gamestate Right
+stepGameWorld (EventCharacter  'y')           gamestate                    = movePosition gamestate UpLeft
+stepGameWorld (EventCharacter  'Y')           gamestate                    = movePosition gamestate UpLeft
+stepGameWorld (EventCharacter  'u')           gamestate                    = movePosition gamestate UpRight
+stepGameWorld (EventCharacter  'U')           gamestate                    = movePosition gamestate UpRight
+stepGameWorld (EventCharacter  'b')           gamestate                    = movePosition gamestate DownLeft
+stepGameWorld (EventCharacter  'B')           gamestate                    = movePosition gamestate DownLeft
+stepGameWorld (EventCharacter  'n')           gamestate                    = movePosition gamestate DownRight
+stepGameWorld (EventCharacter  'N')           gamestate                    = movePosition gamestate DownRight
 stepGameWorld _                               g@GameState{_playState=Dead} = g -- If not playing, player can move around but not "play" (open cells)
 stepGameWorld (EventCharacter 'm')            gamestate                    = placeMarker  gamestate
 stepGameWorld (EventCharacter 'M')            gamestate                    = placeMarker  gamestate
