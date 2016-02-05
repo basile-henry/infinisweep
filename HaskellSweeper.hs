@@ -228,10 +228,10 @@ movePosition g@GameState{_grid=grid, _visibility=vis, _position=(x, y), _panel=(
             Down      -> [(i, bottom) | i <- [left..right]]
             Left      -> [(left, i)   | i <- [top..bottom]]
             Right     -> [(right, i)  | i <- [top..bottom]]
-            UpLeft    -> [(i, j)      | i <- [left..right], j <- [top..bottom]]
-            UpRight   -> [(i, j)      | i <- [left..right], j <- [top..bottom]]
-            DownLeft  -> [(i, j)      | i <- [left..right], j <- [top..bottom]]
-            DownRight -> [(i, j)      | i <- [left..right], j <- [top..bottom]]
+            UpLeft    -> [(i, top)    | i <- [left..right]] ++ [(left, i)   | i <- [top..bottom]]
+            UpRight   -> [(i, top)    | i <- [left..right]] ++ [(right, i)  | i <- [top..bottom]]
+            DownLeft  -> [(i, bottom) | i <- [left..right]] ++ [(left, i)   | i <- [top..bottom]]
+            DownRight -> [(i, bottom) | i <- [left..right]] ++ [(right, i)  | i <- [top..bottom]]
 
         newGameState = foldl getEmptyCells g{_panel=newPanel} cells
 
