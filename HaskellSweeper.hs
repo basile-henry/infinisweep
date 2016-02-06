@@ -205,8 +205,8 @@ inputUpdate w palette g = do
             EventCharacter 'R' -> return (_highscore g, True)
             key                -> doUpdate w palette (stepGameWorld key g))
 
-movePosition :: GameState -> Move -> GameState
-movePosition g@GameState{_grid=grid, _visibility=vis, _position=(x, y), _panel=((left, top), (right, bottom))} move =
+movePosition :: Move -> GameState -> GameState
+movePosition move g@GameState{_grid=grid, _visibility=vis, _position=(x, y), _panel=((left, top), (right, bottom))} =
     newGameState{_position = (x+dx, y+dy)}
     where
         (dx, dy) = case move of
@@ -223,7 +223,7 @@ movePosition g@GameState{_grid=grid, _visibility=vis, _position=(x, y), _panel=(
         newPanel = ((left+dx, top+dy), (right+dx, bottom+dy))
 
         cells :: [Position]
-        cells = concatMap surroundingPositions $ filter (\p -> (tallyMines grid p == 0) && (member p vis)) $ case move of
+        cells = concatMap surroundingPositions $ filter (\p -> (member p vis) && (tallyMines grid p == 0)) $ case move of
             Up        -> [(i, top)    | i <- [left..right]]
             Down      -> [(i, bottom) | i <- [left..right]]
             Left      -> [(left, i)   | i <- [top..bottom]]
@@ -265,6 +265,7 @@ updateMarker g@GameState{_visibility=vis} pos
             newGameState = foldl clickCellPos g cells
 
 placeMarker :: GameState -> GameState
+placeMarker g@GameState{_playState=Dead} = g
 placeMarker g@GameState{_markers=markers, _visibility=vis, _position=pos, _options=opts}
     | member pos vis       = g
     | member pos markers   = g{_markers=(delete pos markers)}
@@ -275,6 +276,7 @@ placeMarker g@GameState{_markers=markers, _visibility=vis, _position=pos, _optio
         newGameState = g{_markers=(insert pos markers)}
 
 clickCell :: GameState -> GameState
+clickCell g@GameState{_playState=Dead} = g
 clickCell g = clickCellPos g (_position g)
 
 clickCellPos :: GameState -> Position -> GameState
@@ -290,63 +292,48 @@ clickCellPos g@GameState{_grid=grid, _visibility=vis, _markers=markers} pos
             else g
 
 stepGameWorld :: Event -> GameState -> GameState
-stepGameWorld (EventSpecialKey KeyUpArrow)    gamestate                    = movePosition gamestate Up
-stepGameWorld (EventCharacter  'w')           gamestate                    = movePosition gamestate Up
-stepGameWorld (EventCharacter  'W')           gamestate                    = movePosition gamestate Up
-stepGameWorld (EventCharacter  'k')           gamestate                    = movePosition gamestate Up
-stepGameWorld (EventCharacter  'K')           gamestate                    = movePosition gamestate Up
-stepGameWorld (EventCharacter  '8')           gamestate                    = movePosition gamestate Up
-stepGameWorld (EventSpecialKey KeyDownArrow)  gamestate                    = movePosition gamestate Down
-stepGameWorld (EventCharacter  's')           gamestate                    = movePosition gamestate Down
-stepGameWorld (EventCharacter  'S')           gamestate                    = movePosition gamestate Down
-stepGameWorld (EventCharacter  'j')           gamestate                    = movePosition gamestate Down
-stepGameWorld (EventCharacter  'J')           gamestate                    = movePosition gamestate Down
-stepGameWorld (EventCharacter  '2')           gamestate                    = movePosition gamestate Down
-stepGameWorld (EventSpecialKey KeyLeftArrow)  gamestate                    = movePosition gamestate Left
-stepGameWorld (EventCharacter  'a')           gamestate                    = movePosition gamestate Left
-stepGameWorld (EventCharacter  'A')           gamestate                    = movePosition gamestate Left
-stepGameWorld (EventCharacter  'h')           gamestate                    = movePosition gamestate Left
-stepGameWorld (EventCharacter  'H')           gamestate                    = movePosition gamestate Left
-stepGameWorld (EventCharacter  '4')           gamestate                    = movePosition gamestate Left
-stepGameWorld (EventSpecialKey KeyRightArrow) gamestate                    = movePosition gamestate Right
-stepGameWorld (EventCharacter  'd')           gamestate                    = movePosition gamestate Right
-stepGameWorld (EventCharacter  'D')           gamestate                    = movePosition gamestate Right
-stepGameWorld (EventCharacter  'l')           gamestate                    = movePosition gamestate Right
-stepGameWorld (EventCharacter  'L')           gamestate                    = movePosition gamestate Right
-stepGameWorld (EventCharacter  '6')           gamestate                    = movePosition gamestate Right
-stepGameWorld (EventCharacter  'y')           gamestate                    = movePosition gamestate UpLeft
-stepGameWorld (EventCharacter  'Y')           gamestate                    = movePosition gamestate UpLeft
-stepGameWorld (EventCharacter  '7')           gamestate                    = movePosition gamestate UpLeft
-stepGameWorld (EventCharacter  'u')           gamestate                    = movePosition gamestate UpRight
-stepGameWorld (EventCharacter  'U')           gamestate                    = movePosition gamestate UpRight
-stepGameWorld (EventCharacter  '9')           gamestate                    = movePosition gamestate UpRight
-stepGameWorld (EventCharacter  'b')           gamestate                    = movePosition gamestate DownLeft
-stepGameWorld (EventCharacter  'B')           gamestate                    = movePosition gamestate DownLeft
-stepGameWorld (EventCharacter  '1')           gamestate                    = movePosition gamestate DownLeft
-stepGameWorld (EventCharacter  'n')           gamestate                    = movePosition gamestate DownRight
-stepGameWorld (EventCharacter  'N')           gamestate                    = movePosition gamestate DownRight
-stepGameWorld (EventCharacter  '3')           gamestate                    = movePosition gamestate DownRight
-stepGameWorld _                               g@GameState{_playState=Dead} = g -- If not playing, player can move around but not "play" (open cells)
-stepGameWorld (EventCharacter 'm')            gamestate                    = placeMarker  gamestate
-stepGameWorld (EventCharacter 'M')            gamestate                    = placeMarker  gamestate
-stepGameWorld (EventCharacter 'e')            gamestate                    = placeMarker  gamestate
-stepGameWorld (EventCharacter 'E')            gamestate                    = placeMarker  gamestate
-stepGameWorld (EventCharacter '5')            gamestate                    = placeMarker  gamestate
-stepGameWorld (EventCharacter ' ')            gamestate                    = clickCell    gamestate
-stepGameWorld (EventSpecialKey KeyEnter)      gamestate                    = clickCell    gamestate
-stepGameWorld (EventCharacter '0')            gamestate                    = clickCell    gamestate
-stepGameWorld _                               gamestate                    = gamestate
-
--- animate :: GameState -> GameState
--- animate = animate' 10
-
--- animate' :: Int -> GameState -> GameState
--- animate' 0 g = g
--- animate' n g@GameState{_playState=Dead, _position=(x, y), _grid=grid, _visibility=vis} = animate' (n-1) revealOneMine
---     where
---         revealOneMine :: GameState
---         revealOneMine = g{_visibility=insert minePos vis}
-
---         minePos :: Position
---         minePos = head $ filter (\p -> (not $ member p vis) && (getCell grid p == Mine)) $ [(x+i, y+j) | d<-[1..], i<-[-d..d], j<-[-d..d]]
--- animate' _ gamestate                  = gamestate
+stepGameWorld (EventSpecialKey KeyUpArrow)   = movePosition Up
+stepGameWorld (EventCharacter  'w')          = movePosition Up
+stepGameWorld (EventCharacter  'W')          = movePosition Up
+stepGameWorld (EventCharacter  'k')          = movePosition Up
+stepGameWorld (EventCharacter  'K')          = movePosition Up
+stepGameWorld (EventCharacter  '8')          = movePosition Up
+stepGameWorld (EventSpecialKey KeyDownArrow) = movePosition Down
+stepGameWorld (EventCharacter  's')          = movePosition Down
+stepGameWorld (EventCharacter  'S')          = movePosition Down
+stepGameWorld (EventCharacter  'j')          = movePosition Down
+stepGameWorld (EventCharacter  'J')          = movePosition Down
+stepGameWorld (EventCharacter  '2')          = movePosition Down
+stepGameWorld (EventSpecialKey KeyLeftArrow) = movePosition Left
+stepGameWorld (EventCharacter  'a')          = movePosition Left
+stepGameWorld (EventCharacter  'A')          = movePosition Left
+stepGameWorld (EventCharacter  'h')          = movePosition Left
+stepGameWorld (EventCharacter  'H')          = movePosition Left
+stepGameWorld (EventCharacter  '4')          = movePosition Left
+stepGameWorld (EventSpecialKey KeyRightArrow)= movePosition Right
+stepGameWorld (EventCharacter  'd')          = movePosition Right
+stepGameWorld (EventCharacter  'D')          = movePosition Right
+stepGameWorld (EventCharacter  'l')          = movePosition Right
+stepGameWorld (EventCharacter  'L')          = movePosition Right
+stepGameWorld (EventCharacter  '6')          = movePosition Right
+stepGameWorld (EventCharacter  'y')          = movePosition UpLeft
+stepGameWorld (EventCharacter  'Y')          = movePosition UpLeft
+stepGameWorld (EventCharacter  '7')          = movePosition UpLeft
+stepGameWorld (EventCharacter  'u')          = movePosition UpRight
+stepGameWorld (EventCharacter  'U')          = movePosition UpRight
+stepGameWorld (EventCharacter  '9')          = movePosition UpRight
+stepGameWorld (EventCharacter  'b')          = movePosition DownLeft
+stepGameWorld (EventCharacter  'B')          = movePosition DownLeft
+stepGameWorld (EventCharacter  '1')          = movePosition DownLeft
+stepGameWorld (EventCharacter  'n')          = movePosition DownRight
+stepGameWorld (EventCharacter  'N')          = movePosition DownRight
+stepGameWorld (EventCharacter  '3')          = movePosition DownRight
+stepGameWorld (EventCharacter 'm')           = placeMarker
+stepGameWorld (EventCharacter 'M')           = placeMarker
+stepGameWorld (EventCharacter 'e')           = placeMarker
+stepGameWorld (EventCharacter 'E')           = placeMarker
+stepGameWorld (EventCharacter '5')           = placeMarker
+stepGameWorld (EventCharacter ' ')           = clickCell
+stepGameWorld (EventSpecialKey KeyEnter)     = clickCell
+stepGameWorld (EventCharacter '0')           = clickCell
+stepGameWorld _                              = id
