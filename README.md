@@ -67,3 +67,8 @@ When a cell in the grid is opened it either contains a mine and therefore explod
 - Press R to start a new game.
 
 If an open cell is satisfied (the number of mines the cell indicates matches the number of markers) you can click it (with space) and it will open all the remaining closed cells surrounding it that aren't marked. If you select the `auto` mode this behaviour is completely automated.
+
+## License
+This project is licensed under the MIT License.
+
+`Copyright (c) 2016 Basile Henry & David Eichmann`
