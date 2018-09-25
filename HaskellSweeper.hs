@@ -14,7 +14,7 @@ import           Prelude             hiding (Either (..))
 import qualified Prelude             as P
 import           System.IO.Error     (tryIOError)
 import qualified System.IO.Strict    as S
-import           System.Random       (StdGen, getStdGen, mkStdGen, randomRs,
+import           System.Random       (StdGen, getStdGen, mkStdGen, split, randomRs,
                                       randoms)
 import           UI.NCurses          (Color (..), ColorID, Curses, Event (..),
                                       Key (..), Update, Window, defaultWindow,
@@ -71,6 +71,7 @@ data GameState  = GameState
         highscore  :: Score,
         playState  :: PlayState,
         panel      :: Panel,
+        randomgen  :: StdGen,
         options    :: Options
     }
 
@@ -130,11 +131,12 @@ showCell GameState{grid, visibility, markers, playState} pos palette
 randomGrid :: StdGen -> Int -> Grid
 randomGrid gen den = [map (\n -> if n<den then Mine else Empty) $ randomRs (0, 99 :: Int) (mkStdGen g) | g<-randoms gen :: [Int]]
 
--- Generate an infite list of GameStates
-createGameStates :: StdGen -> Options -> Score -> [GameState]
-createGameStates gen opts hs =  map (\g -> GameState
+-- Generate a random initial GameState
+createGameState :: StdGen -> Options -> Score -> GameState
+createGameState gen opts hs = let (g, g') = split gen in
+  GameState
     {
-        grid       = randomGrid (mkStdGen g) (density opts),
+        grid       = randomGrid g (density opts),
         visibility = empty,
         markers    = empty,
         position   = (0, 0),
@@ -142,8 +144,12 @@ createGameStates gen opts hs =  map (\g -> GameState
         highscore  = hs,
         playState  = Alive,
         panel      = ((-150, -50), (150, 50)),
+        randomgen  = g',
         options    = opts
-    }) (randoms gen :: [Int])
+    }
+
+newGame :: GameState -> GameState
+newGame GameState{randomgen=gen, options=opts, highscore=hs} = createGameState gen opts hs
 
 -- Highscore file path depends on the options
 highscorePath :: Options -> FilePath
@@ -191,24 +197,14 @@ main = do
                 newColorID ColorRed     ColorDefault 9
             ]
 
-        let
-            -- Loop through the infinite list of GameStates while restarting, exit otherwise
-            restartLoop :: (GameState -> Curses (Score, Bool)) -> [GameState] -> Curses Score
-            restartLoop f (g:ng:gs) = do
-                continue <- f g
-                case continue of
-                    (hs, True)  -> restartLoop f (ng{highscore=hs}:gs)
-                    (hs, False) -> return hs
-            restartLoop _ _ = error "Impossible"
-
-        restartLoop (doUpdate w palette) (createGameStates gen options highscore)
+        doUpdate w palette (createGameState gen options highscore)
 
     -- save the new highscore
     writeHighscore options new_highscore
 
 -- Mainloop
 -- Update the UI
-doUpdate :: Window -> [ColorID] -> GameState -> Curses (Score, Bool)
+doUpdate :: Window -> [ColorID] -> GameState -> Curses Score
 doUpdate w palette g@GameState{position=(x, y), score, highscore, playState, options} = do
     updateWindow w $ do
         (sizeY, sizeX) <- windowSize
@@ -237,21 +233,41 @@ doUpdate w palette g@GameState{position=(x, y), score, highscore, playState, opt
     inputUpdate w palette g
 
 -- Take keyboard inputs and update GameState
-inputUpdate :: Window -> [ColorID] -> GameState -> Curses (Score, Bool)
+inputUpdate :: Window -> [ColorID] -> GameState -> Curses Score
 inputUpdate w palette g =
     getEvent w (Just 100) >>= maybe
         (doUpdate w palette g)
-        (\case
-            EventCharacter 'q' -> return (highscore g, False)
-            EventCharacter 'Q' -> return (highscore g, False)
-            EventCharacter 'r' -> return (highscore g, True)
-            EventCharacter 'R' -> return (highscore g, True)
-            key                -> doUpdate w palette (stepGameWorld key g))
+        (\key -> case stepGameWorld key g of
+          Nothing -> pure (highscore g)
+          Just g' -> doUpdate w palette g'
+          )
+
+-- Recursively open cells that are empty (limited by panel to avoid infinite recursion)
+getEmptyCells :: GameState -> Position -> GameState
+getEmptyCells g@GameState{grid, panel, visibility, markers, score, highscore} pos
+    | not (inBounds pos panel)
+      || member pos visibility
+      || member pos markers    = g
+    | t > 0                    = g{visibility=newVis, score=score + t, highscore=max highscore (score + t)}
+    | otherwise                = foldl getEmptyCells g{visibility=newVis} (surroundingPositions pos)
+    where
+        t :: Int
+        t = tallyMines grid pos
+
+        newVis :: Visibility
+        newVis = insert pos visibility
+
+-- A Cell (at a given position) is satisfied if the number of Mines around it matches the number of cells
+-- Markers could still be missplaced!
+isSatisfied :: GameState -> Position -> Bool
+isSatisfied GameState{grid, markers} p = tallyMines grid p == tallyMarkers markers p
+
+type GameUpdate = GameState -> Maybe GameState
 
 -- Change the current position on the grid
-movePosition :: Move -> GameState -> GameState
+movePosition :: Move -> GameUpdate
 movePosition move g@GameState{grid, visibility, position=(x, y), panel=((left, top), (right, bottom))} =
-    newGameState{position = (x+dx, y+dy)}
+    pure newGameState{position = (x+dx, y+dy)}
     where
         -- deltas from a Move
         (dx, dy) = case move of
@@ -283,31 +299,11 @@ movePosition move g@GameState{grid, visibility, position=(x, y), panel=((left, t
         -- get the new GameState with the updated cells and panel
         newGameState = foldl getEmptyCells g{panel=newPanel} cells
 
--- Recursively open cells that are empty (limited by panel to avoid infinite recursion)
-getEmptyCells :: GameState -> Position -> GameState
-getEmptyCells g@GameState{grid, panel, visibility, markers, score, highscore} pos
-    | not (inBounds pos panel)
-      || member pos visibility
-      || member pos markers    = g
-    | t > 0                    = g{visibility=newVis, score=score + t, highscore=max highscore (score + t)}
-    | otherwise                = foldl getEmptyCells g{visibility=newVis} (surroundingPositions pos)
-    where
-        t :: Int
-        t = tallyMines grid pos
-
-        newVis :: Visibility
-        newVis = insert pos visibility
-
--- A Crll (at a given position) is satisfied if the number of Mines around it matches the number of cells
--- Markers could still be missplaced!
-isSatisfied :: GameState -> Position -> Bool
-isSatisfied GameState{grid, markers} p = tallyMines grid p == tallyMarkers markers p
-
 -- Implements the AutoOpen option by opening cells surrounding satisfied cells
-updateMarker :: GameState -> Position -> GameState
-updateMarker g@GameState{visibility=vis} pos
-    | size vis == size (visibility newGameState) = newGameState
-    | otherwise                                  = updateMarker newGameState pos
+updateMarker :: Position -> GameUpdate
+updateMarker pos g@GameState{visibility=vis}
+    | size vis == size (visibility newGameState) = pure newGameState
+    | otherwise                                  = updateMarker pos newGameState
         where
             cells :: [Position]
             cells = concatMap surroundingPositions $ filter (\p -> member p vis && isSatisfied g p) (surroundingPositions pos)
@@ -316,21 +312,21 @@ updateMarker g@GameState{visibility=vis} pos
             newGameState = foldl clickCellPos g cells
 
 -- Handle the placement of a marker on the grid
-placeMarker :: GameState -> GameState
-placeMarker g@GameState{playState=Dead} = g
+placeMarker :: GameUpdate
+placeMarker g@GameState{playState=Dead} = pure g
 placeMarker g@GameState{markers, visibility, position=pos, options}
-    | member pos visibility   = g
-    | member pos markers      = g{markers=delete pos markers}
-    | autoOpen options        = updateMarker newGameState pos
-    | otherwise               = newGameState
+    | member pos visibility   = pure g
+    | member pos markers      = pure g{markers=delete pos markers}
+    | autoOpen options        = updateMarker pos newGameState
+    | otherwise               = pure newGameState
     where
         newGameState :: GameState
         newGameState = g{markers=insert pos markers}
 
 -- Handle a player click on the current cell
-clickCell :: GameState -> GameState
-clickCell g@GameState{playState=Dead} = g
-clickCell g                           = clickCellPos g (position g)
+clickCell :: GameUpdate
+clickCell g@GameState{playState=Dead} = pure g
+clickCell g                           = pure $ clickCellPos g (position g)
 
 -- Handle opening a cell (both user actions on automatic ones)
 clickCellPos :: GameState -> Position -> GameState
@@ -346,8 +342,10 @@ clickCellPos g@GameState{grid, visibility=vis, markers} pos
           | otherwise         = g
 
 -- Handle keyboard inputs on the current GameState and update the GameState accordingly
-stepGameWorld :: Event -> GameState -> GameState
+stepGameWorld :: Event -> GameUpdate
 stepGameWorld event
+    | event `elem` quitEvents          = \_ -> Nothing
+    | event `elem` restartEvents       = pure . newGame 
     | event `elem` moveUpEvents        = movePosition Up
     | event `elem` moveDownEvents      = movePosition Down
     | event `elem` moveLeftEvents      = movePosition Left
@@ -358,8 +356,10 @@ stepGameWorld event
     | event `elem` moveDownRightEvents = movePosition DownRight
     | event `elem` placeMarkerEvents   = placeMarker
     | event `elem` clickCellEvents     = clickCell
-    | otherwise = id
+    | otherwise = pure
   where
+    quitEvents          =                                 map EventCharacter "qQ"
+    restartEvents       =                                 map EventCharacter "rR"
     moveUpEvents        = EventSpecialKey KeyUpArrow    : map EventCharacter "wWkK8"
     moveDownEvents      = EventSpecialKey KeyDownArrow  : map EventCharacter "sSjJ2"
     moveLeftEvents      = EventSpecialKey KeyLeftArrow  : map EventCharacter "aAhH4"
