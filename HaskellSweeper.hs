@@ -23,18 +23,17 @@ import           UI.NCurses          (Color (..), ColorID, Curses, Event (..),
                                       render, runCurses, setColor, setEcho,
                                       updateWindow, windowSize)
 
+import           Sweeper.Grid
+
 {-# ANN module ("HLint: ignore Use head") #-}
 -- we often use "palette !! x" for some x
 
-type Grid       = [[Cell]]     -- Infinite 2D grid of cells
 data Cell       = Empty | Mine deriving Eq
 
 type Visibility = Set Position -- Set of positions (in the grid) that are visible (opened cell)
 type Markers    = Set Position -- Set of positions that are marked as containing a mine (wether or not it actually does)
-type Position   = (Int, Int)   -- Position in the grid
 type Score      = Int          -- The score corresponds to the sum of all the numbers showing in the visible cells
 data PlayState  = Alive | Dead deriving Eq
-type Panel      = (Position, Position) -- The panel is used as limits for recursing down empty cells (it is supposed to be bigger than the terminal)
 data Option     = Adventure    -- Idea unimplemented for now
                 | AutoOpen     -- When the player marks a cell, automatically open (make visible) the cells adjacents to the satisfied neighbouring cells
                 | Density Int  -- Pourcentage of the density of mines in the grid. Default value is 20%
@@ -63,7 +62,7 @@ prettyShow opts =
 data Move       = Up | Down | Left | Right | UpLeft | UpRight | DownLeft | DownRight -- Possible ways to move on the grid
 data GameState  = GameState
     {
-        grid       :: Grid,
+        grid       :: Grid Cell,
         visibility :: Visibility,
         markers    :: Markers,
         score      :: Score,
@@ -75,25 +74,8 @@ data GameState  = GameState
         options    :: Options
     }
 
--- Get the index from an infinite list (infinite towards both -∞ and +∞)
--- List indices are like this: [0, 1, -1, 2, -2..]
-getIndex :: [a] -> Int -> a
-getIndex l i
-    | i <= 0    = l!!(-2*i)
-    | otherwise = l!!(2*i-1)
-
--- Get a cell from the 2D infinite grid
-getCell :: Grid -> Position -> Cell
-getCell grid (x, y) = getIndex (getIndex grid x) y
-
-surroundingPositions :: Position -> [Position]
-surroundingPositions (x, y) = [(i, j) | i<-[x-1..x+1], j<-[y-1..y+1], x /= i || y /= j]
-
-inBounds :: Position -> Panel -> Bool
-inBounds (x, y) ((a, b), (c, d)) = a <= x && x <= c && b <= y && y <= d
-
 -- Count the number of mines in the positions around a given position
-tallyMines :: Grid -> Position -> Int
+tallyMines :: Grid Cell -> Position -> Int
 tallyMines grid pos = length $ filter (==Mine) $ map (getCell grid) (surroundingPositions pos)
 
 -- Count the number of markers in the positions around a given position
@@ -128,7 +110,7 @@ showCell GameState{grid, visibility, markers, playState} pos palette
         markerColor _    _     = setColor $ palette!!8
 
 -- Generate an infinite grid
-randomGrid :: StdGen -> Int -> Grid
+randomGrid :: StdGen -> Int -> Grid Cell
 randomGrid gen den = [map (\n -> if n<den then Mine else Empty) $ randomRs (0, 99 :: Int) (mkStdGen g) | g<-randoms gen :: [Int]]
 
 -- Generate a random initial GameState
