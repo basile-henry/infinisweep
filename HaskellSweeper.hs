@@ -1,27 +1,27 @@
-{-# LANGUAGE LambdaCase     #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric  #-}
+{-# LANGUAGE LambdaCase     #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Main(main) where
 
-import           Data.Hashable        (Hashable (hash))
-import           Data.List            (intercalate)
-import           Data.Set             (Set, delete, empty, insert, member, size)
-import           GHC.Generics         (Generic)
-import qualified Options.Applicative  as Opt
-import           Prelude              hiding (Either (..))
-import qualified Prelude              as P
-import           System.IO.Error      (tryIOError)
-import qualified System.IO.Strict     as S
-import           System.Random        (StdGen, getStdGen, mkStdGen, randomRs,
-                                       randoms)
-import           UI.NCurses           (Color (..), ColorID, Curses, Event (..),
-                                       Key (..), Update, Window, defaultWindow,
-                                       drawLineH, drawString, getEvent,
-                                       glyphLineH, moveCursor, newColorID, render,
-                                       runCurses, setColor, setEcho, updateWindow,
-                                       windowSize)
+import           Data.Hashable       (Hashable (hash))
+import           Data.List           (intercalate)
+import           Data.Set            (Set, delete, empty, insert, member, size)
+import           GHC.Generics        (Generic)
+import qualified Options.Applicative as Opt
+import           Prelude             hiding (Either (..))
+import qualified Prelude             as P
+import           System.IO.Error     (tryIOError)
+import qualified System.IO.Strict    as S
+import           System.Random       (StdGen, getStdGen, mkStdGen, randomRs,
+                                      randoms)
+import           UI.NCurses          (Color (..), ColorID, Curses, Event (..),
+                                      Key (..), Update, Window, defaultWindow,
+                                      drawLineH, drawString, getEvent,
+                                      glyphLineH, moveCursor, newColorID,
+                                      render, runCurses, setColor, setEcho,
+                                      updateWindow, windowSize)
 
 type Grid       = [[Cell]]     -- Infinite 2D grid of cells
 data Cell       = Empty | Mine deriving Eq
@@ -151,7 +151,7 @@ readHighscore options = do
     strOrExc <- tryIOError $ S.readFile $ highscorePath options
     let
         getScore :: [String] -> Score
-        getScore []     = 0
+        getScore []    = 0
         getScore (x:_) = read $ last $ words x
 
         highscore = case strOrExc of
@@ -327,7 +327,7 @@ placeMarker g@GameState{markers, visibility, position=pos, options}
 -- Handle a player click on the current cell
 clickCell :: GameState -> GameState
 clickCell g@GameState{playState=Dead} = g
-clickCell g = clickCellPos g (position g)
+clickCell g                           = clickCellPos g (position g)
 
 -- Handle opening a cell (both user actions on automatic ones)
 clickCellPos :: GameState -> Position -> GameState
