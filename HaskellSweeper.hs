@@ -5,16 +5,12 @@
 
 module Main(main) where
 
-import           Data.Char            (isAlphaNum, toLower)
 import           Data.Hashable        (Hashable (hash))
-import           Data.List            (intercalate)
-import           Data.Set             (Set, delete, empty, insert, member, size,
-                                       toList)
+import           Data.Set             (Set, delete, empty, insert, member, size)
 import           GHC.Generics         (Generic)
 import qualified Options.Applicative  as Opt
 import           Prelude              hiding (Either (..))
 import qualified Prelude              as P
-import           System.Environment   (getArgs)
 import           System.IO.Error      (tryIOError)
 import qualified System.IO.Strict     as S
 import           System.Random        (StdGen, getStdGen, mkStdGen, randomRs,
@@ -199,6 +195,7 @@ main = do
                 case continue of
                     (hs, True)  -> restartLoop f (ng{highscore=hs}:gs)
                     (hs, False) -> return hs
+            restartLoop _ _ = error "Impossible"
 
         restartLoop (doUpdate w palette) (createGameStates gen options highscore)
 
