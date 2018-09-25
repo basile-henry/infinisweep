@@ -1,59 +1,72 @@
 # HaskellSweeper
+
 HaskellSweeper is a clone of the famous [Minesweeper](https://en.wikipedia.org/wiki/Minesweeper_%28video_game%29) game written in Haskell. It features an infinite grid which means that a game could (in theory) go on forever.
 
-This game is played in a terminal using ncurses to render it.
+This game is played in a terminal using `ncurses` to render it.
 
 ![HaskellSweeper game screenshot](screenshot.png)
 
 ## How to build
-### Cabal
-The building process has been tested on Ubuntu 14.04 and Linux Mint 17.3:
+
+For `cabal` and `stack` the `C` library `libncursesw5-dev` needs to be installed
+separately. On Ubuntu:
+
 ```sh
-sudo apt-get install happy alex libncursesw5-dev libghc-language-c-dev
-```
-All these dependencies are needed for the ncurses library we are using.
-We also need c2hs (but the version in Ubuntu's repos is too old so we'll use cabal to install it instead). If you don't already have cabal: `sudo apt-get install cabal-install && cabal update`
-```sh
-cabal install c2hs
-```
-And because by default Ubuntu doesn't have the binaries installed by cabal in the path (you might want to put this in .bashrc, .zshrc or similar):
-```sh
-export PATH=~/.cabal/bin:$PATH
+sudo apt install libncursesw-dev
 ```
 
-At this point it should be pretty straight forward:
+### Cabal
+
 ```sh
-cabal install --only-dependencies
-cabal configure
-cabal build
+cabal new-build
 ```
 
 ### Stack
-If you don't have Stack, get it [here](http://docs.haskellstack.org/en/stable/README.html).
-The building process has been tested on OSX 10.11:
+
 ```sh
 stack setup
 stack build
 ```
 
+### Nix
+
+```sh
+nix build 
+```
+
 ## How to run the game
+
+With the following `options`:
+
+```
+Usage: infinisweep [-a|--auto-open] [-d|--density PERCENT]
+
+Available options:
+  -h,--help                Show this help text
+  -a,--auto-open           Whether to automatically open cells known to not
+                           contain a mine
+  -d,--density PERCENT     Density of the minefield, as a percentage
+```
+
 ### Cabal
 ```sh
-./HaskellSweeper [options]
+cabal new-exec -- infinisweep
 ```
 
 ### Stack
+
 ```sh
-stack exec -- HaskellSweeper [options]
+stack exec -- infinisweep
 ```
 
-With these `options`:
+### Nix
 
-- `auto` -- When placing markers, the cells that are satisfied (number in the cell corresponds to the number of markers around it) will be opened automagically!
-- `density n` where `n` is a number between 0 and 100 inclusive. It sets the mine density as a percentage.
-- `adventure` -- Play in adventure mode (coming soon)
+```sh
+result/bin/infinisweep 
+```
 
 ## How to play
+
 When a cell in the grid is opened it either contains a mine and therefore explodes (Game Over) or will show the player the number of mines in the neighbouring cells (there are 8 neighbouring cells).
 
 - To move around the grid use:
@@ -69,6 +82,10 @@ When a cell in the grid is opened it either contains a mine and therefore explod
 If an open cell is satisfied (the number of mines the cell indicates matches the number of markers) you can click it (with space) and it will open all the remaining closed cells surrounding it that aren't marked. If you select the `auto` mode this behaviour is completely automated.
 
 ## License
+
 This project is licensed under the MIT License.
 
-`Copyright (c) 2016 Basile Henry & David Eichmann`
+```
+Copyright (c) 2016 Basile Henry & David Eichmann
+Copyright (c) 2018 Basile Henry & Nathan van Doorn
+```
