@@ -15,7 +15,9 @@ executable HaskellSweeper
   main-is:             HaskellSweeper.hs
   build-depends:       base >=4.6 && <5,
                        containers,
+                       hashable,
                        ncurses,
+                       optparse-applicative,
                        random,
                        strict
 

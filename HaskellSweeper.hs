@@ -1,25 +1,30 @@
 {-# LANGUAGE LambdaCase     #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric  #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Main(main) where
 
-import           Data.Char          (isAlphaNum, toLower)
-import           Data.List          (intercalate)
-import           Data.Set           (Set, delete, empty, insert, member, size,
-                                     toList)
-import           Prelude            hiding (Either (..))
-import qualified Prelude            as P
-import           System.Environment (getArgs)
-import           System.IO.Error    (tryIOError)
-import qualified System.IO.Strict   as S
-import           System.Random      (StdGen, getStdGen, mkStdGen, randomRs,
-                                     randoms)
-import           UI.NCurses         (Color (..), ColorID, Curses, Event (..),
-                                     Key (..), Update, Window, defaultWindow,
-                                     drawLineH, drawString, getEvent,
-                                     glyphLineH, moveCursor, newColorID, render,
-                                     runCurses, setColor, setEcho, updateWindow,
-                                     windowSize)
+import           Data.Char            (isAlphaNum, toLower)
+import           Data.Hashable        (Hashable (hash))
+import           Data.List            (intercalate)
+import           Data.Set             (Set, delete, empty, insert, member, size,
+                                       toList)
+import           GHC.Generics         (Generic)
+import qualified Options.Applicative  as Opt
+import           Prelude              hiding (Either (..))
+import qualified Prelude              as P
+import           System.Environment   (getArgs)
+import           System.IO.Error      (tryIOError)
+import qualified System.IO.Strict     as S
+import           System.Random        (StdGen, getStdGen, mkStdGen, randomRs,
+                                       randoms)
+import           UI.NCurses           (Color (..), ColorID, Curses, Event (..),
+                                       Key (..), Update, Window, defaultWindow,
+                                       drawLineH, drawString, getEvent,
+                                       glyphLineH, moveCursor, newColorID, render,
+                                       runCurses, setColor, setEcho, updateWindow,
+                                       windowSize)
 
 type Grid       = [[Cell]]     -- Infinite 2D grid of cells
 data Cell       = Empty | Mine deriving Eq
@@ -34,7 +39,26 @@ data Option     = Adventure    -- Idea unimplemented for now
                 | AutoOpen     -- When the player marks a cell, automatically open (make visible) the cells adjacents to the satisfied neighbouring cells
                 | Density Int  -- Pourcentage of the density of mines in the grid. Default value is 20%
                 deriving (Eq, Ord, Show)
-type Options    = Set Option
+
+data Options = Options
+  { adventure :: Bool
+  , autoOpen  :: Bool
+  , density   :: Int
+  } deriving (Generic, Hashable)
+
+optionsParser :: Opt.Parser Options
+optionsParser = Options
+  <$> pure False -- Adventure unsupported
+  <*> Opt.switch
+    (Opt.short 'a' <> Opt.long "auto-open" <> Opt.help "Whether to automatically open cells known to not contain a mine")
+  <*> Opt.option Opt.auto
+    (Opt.short 'd' <> Opt.long "density" <> Opt.help "Density of the minefield, as a percentage" <> Opt.value 20 <> Opt.metavar "PERCENT")
+
+prettyShow :: Options -> String
+prettyShow opts =
+  (if adventure opts then "Adventure | " else "") ++
+  (if autoOpen opts then "Auto Open | " else "") ++
+  "Density: " ++ show (density opts) ++ " | "
 
 data Move       = Up | Down | Left | Right | UpLeft | UpRight | DownLeft | DownRight -- Possible ways to move on the grid
 data GameState  = GameState
@@ -110,7 +134,7 @@ randomGrid gen den = [map (\n -> if n<den then Mine else Empty) $ randomRs (0, 9
 createGameStates :: StdGen -> Options -> Score -> [GameState]
 createGameStates gen opts hs =  map (\g -> GameState
     {
-        grid       = randomGrid (mkStdGen g) (density $ toList opts),
+        grid       = randomGrid (mkStdGen g) (density opts),
         visibility = empty,
         markers    = empty,
         position   = (0, 0),
@@ -120,23 +144,10 @@ createGameStates gen opts hs =  map (\g -> GameState
         panel      = ((-150, -50), (150, 50)),
         options    = opts
     }) ((randoms gen) :: [Int])
-    where
-        density :: [Option] -> Int
-        density []            = 20
-        density (Density x:_) = x
-        density (_:xs)        = density xs
-
--- Parse the options given as Strings
-argsToOptions :: [String] -> Options
-argsToOptions []               = empty
-argsToOptions ("auto":xs)      = insert AutoOpen $ argsToOptions xs
-argsToOptions ("adventure":xs) = insert Adventure $ argsToOptions xs
-argsToOptions ("density":x:xs) = insert (Density $ read x) $ argsToOptions xs
-argsToOptions (_:xs)           = argsToOptions xs
 
 -- Highscore file path depends on the options
 highscorePath :: Options -> FilePath
-highscorePath options = intercalate "_" $ ".highscore" : (map (filter isAlphaNum . show) $ toList options)
+highscorePath options = ".highscore_" ++ show (hash options)
 
 readHighscore :: Options -> IO Score
 readHighscore options = do
@@ -158,8 +169,7 @@ writeHighscore options score = writeFile (highscorePath options) (show score)
 main :: IO ()
 main = do
     gen  <- getStdGen
-    args <- getArgs
-    let options = argsToOptions $ map (map toLower) args
+    options <- Opt.execParser $ Opt.info (Opt.helper <*> optionsParser) Opt.fullDesc
     highscore <- readHighscore options -- get the saved highscore
 
     -- Start the UI and the mainloop
@@ -213,7 +223,7 @@ doUpdate w palette g@GameState{position=(x, y), score, highscore, playState, opt
         drawLineH (Just glyphLineH) sizeX
         moveCursor (sizeY - 1) 0
         setColor $ palette!!0
-        drawString $ take (sizeX'-1) $ concat [show o ++ " | " | o <- toList options] ++ case playState of
+        drawString $ take (sizeX'-1) $ prettyShow options ++ case playState of
             Alive -> "Score: " ++ show score ++ repeat ' '
             Dead  -> "Game over! Your score is: " ++ show score ++ " | Highscore is: " ++ show highscore ++ repeat ' '
         moveCursor (div sizeY 2) (div sizeX 2)
@@ -305,7 +315,7 @@ placeMarker g@GameState{playState=Dead} = g
 placeMarker g@GameState{markers, visibility, position=pos, options}
     | member pos visibility   = g
     | member pos markers      = g{markers=(delete pos markers)}
-    | member AutoOpen options = updateMarker newGameState pos
+    | autoOpen options        = updateMarker newGameState pos
     | otherwise               = newGameState
     where
         newGameState :: GameState
