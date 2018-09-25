@@ -13,7 +13,7 @@ cabal-version:       >=1.10
 
 executable HaskellSweeper
   main-is:             HaskellSweeper.hs
-  build-depends:       base >=4.6 && <4.9,
+  build-depends:       base >=4.6 && <5,
                        containers,
                        ncurses,
                        random,
