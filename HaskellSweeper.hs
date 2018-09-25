@@ -23,6 +23,9 @@ import           UI.NCurses          (Color (..), ColorID, Curses, Event (..),
                                       render, runCurses, setColor, setEcho,
                                       updateWindow, windowSize)
 
+{-# ANN module ("HLint: ignore Use head") #-}
+-- we often use "palette !! x" for some x
+
 type Grid       = [[Cell]]     -- Infinite 2D grid of cells
 data Cell       = Empty | Mine deriving Eq
 
@@ -94,7 +97,7 @@ tallyMines grid pos = length $ filter (==Mine) $ map (getCell grid) (surrounding
 
 -- Count the number of markers in the positions around a given position
 tallyMarkers :: Markers -> Position -> Int
-tallyMarkers markers pos = length $ filter (\m -> member m markers) (surroundingPositions pos)
+tallyMarkers markers pos = length $ filter (`member` markers) (surroundingPositions pos)
 
 showGrid :: GameState -> Panel -> Position -> [ColorID] -> Update ()
 showGrid gamestate ((left, top), (right, bottom)) (sx, sy) palette =
@@ -125,7 +128,7 @@ showCell GameState{grid, visibility, markers, playState} pos palette
 
 -- Generate an infinite grid
 randomGrid :: StdGen -> Int -> Grid
-randomGrid gen den = [map (\n -> if n<den then Mine else Empty) $ randomRs (0, 99 :: Int) (mkStdGen g) | g<-(randoms gen) :: [Int]]
+randomGrid gen den = [map (\n -> if n<den then Mine else Empty) $ randomRs (0, 99 :: Int) (mkStdGen g) | g<-randoms gen :: [Int]]
 
 -- Generate an infite list of GameStates
 createGameStates :: StdGen -> Options -> Score -> [GameState]
@@ -140,7 +143,7 @@ createGameStates gen opts hs =  map (\g -> GameState
         playState  = Alive,
         panel      = ((-150, -50), (150, 50)),
         options    = opts
-    }) ((randoms gen) :: [Int])
+    }) (randoms gen :: [Int])
 
 -- Highscore file path depends on the options
 highscorePath :: Options -> FilePath
@@ -210,7 +213,7 @@ doUpdate w palette g@GameState{position=(x, y), score, highscore, playState, opt
     updateWindow w $ do
         (sizeY, sizeX) <- windowSize
         let (sizeX', sizeY') = (fromInteger sizeX, fromInteger sizeY)
-        let topLeft@(left, top) = (x - (div sizeX' 2), y - (div sizeY' 2))
+        let topLeft@(left, top) = (x - (sizeX' `div` 2), y - (sizeY' `div` 2))
         let bottomRight = (left + sizeX' - 1, top + sizeY' - 3)
         let panel = (topLeft, bottomRight)
 
@@ -235,7 +238,7 @@ doUpdate w palette g@GameState{position=(x, y), score, highscore, playState, opt
 
 -- Take keyboard inputs and update GameState
 inputUpdate :: Window -> [ColorID] -> GameState -> Curses (Score, Bool)
-inputUpdate w palette g = do
+inputUpdate w palette g =
     getEvent w (Just 100) >>= maybe
         (doUpdate w palette g)
         (\case
@@ -267,7 +270,7 @@ movePosition move g@GameState{grid, visibility, position=(x, y), panel=((left, t
         -- cells on the edge of the panel that need to be updated because the panel is moving
         -- this update is necessary since the cells opened recursively stopped at the edge of the panel
         cells :: [Position]
-        cells = concatMap surroundingPositions $ filter (\p -> (member p visibility) && (tallyMines grid p == 0)) $ case move of
+        cells = concatMap surroundingPositions $ filter (\p -> member p visibility && (tallyMines grid p == 0)) $ case move of
             Up        -> [(i, top)    | i <- [left..right]]
             Down      -> [(i, bottom) | i <- [left..right]]
             Left      -> [(left, i)   | i <- [top..bottom]]
@@ -307,7 +310,7 @@ updateMarker g@GameState{visibility=vis} pos
     | otherwise                                  = updateMarker newGameState pos
         where
             cells :: [Position]
-            cells = concatMap surroundingPositions $ filter (\p -> (member p vis) && (isSatisfied g p)) (surroundingPositions pos)
+            cells = concatMap surroundingPositions $ filter (\p -> member p vis && isSatisfied g p) (surroundingPositions pos)
 
             newGameState :: GameState
             newGameState = foldl clickCellPos g cells
@@ -317,12 +320,12 @@ placeMarker :: GameState -> GameState
 placeMarker g@GameState{playState=Dead} = g
 placeMarker g@GameState{markers, visibility, position=pos, options}
     | member pos visibility   = g
-    | member pos markers      = g{markers=(delete pos markers)}
+    | member pos markers      = g{markers=delete pos markers}
     | autoOpen options        = updateMarker newGameState pos
     | otherwise               = newGameState
     where
         newGameState :: GameState
-        newGameState = g{markers=(insert pos markers)}
+        newGameState = g{markers=insert pos markers}
 
 -- Handle a player click on the current cell
 clickCell :: GameState -> GameState
@@ -334,13 +337,13 @@ clickCellPos :: GameState -> Position -> GameState
 clickCellPos g@GameState{grid, visibility=vis, markers} pos
     | member pos markers       = g
     | member pos vis           = updatedMarkers
-    | getCell grid pos == Mine = g{visibility=(insert pos vis), playState=Dead}
+    | getCell grid pos == Mine = g{visibility=insert pos vis, playState=Dead}
     | otherwise                = getEmptyCells g pos
     where
         updatedMarkers :: GameState
-        updatedMarkers = if (isSatisfied g pos)
-            then foldl clickCellPos g (filter (\p -> not $ member p vis) (surroundingPositions pos))
-            else g
+        updatedMarkers
+          | isSatisfied g pos = foldl clickCellPos g (filter (\p -> not $ member p vis) (surroundingPositions pos))
+          | otherwise         = g
 
 -- Handle keyboard inputs on the current GameState and update the GameState accordingly
 stepGameWorld :: Event -> GameState -> GameState
