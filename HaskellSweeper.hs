@@ -6,6 +6,7 @@
 module Main(main) where
 
 import           Data.Hashable        (Hashable (hash))
+import           Data.List            (intercalate)
 import           Data.Set             (Set, delete, empty, insert, member, size)
 import           GHC.Generics         (Generic)
 import qualified Options.Applicative  as Opt
@@ -50,11 +51,11 @@ optionsParser = Options
   <*> Opt.option Opt.auto
     (Opt.short 'd' <> Opt.long "density" <> Opt.help "Density of the minefield, as a percentage" <> Opt.value 20 <> Opt.metavar "PERCENT")
 
-prettyShow :: Options -> String
+prettyShow :: Options -> [String]
 prettyShow opts =
-  (if adventure opts then "Adventure | " else "") ++
-  (if autoOpen opts then "Auto Open | " else "") ++
-  "Density: " ++ show (density opts) ++ " | "
+  ["Adventure" | adventure opts] ++
+  ["Auto Open" | autoOpen opts] ++
+  ["Density: " ++ show (density opts)]
 
 data Move       = Up | Down | Left | Right | UpLeft | UpRight | DownLeft | DownRight -- Possible ways to move on the grid
 data GameState  = GameState
@@ -220,9 +221,14 @@ doUpdate w palette g@GameState{position=(x, y), score, highscore, playState, opt
         drawLineH (Just glyphLineH) sizeX
         moveCursor (sizeY - 1) 0
         setColor $ palette!!0
-        drawString $ take (sizeX'-1) $ prettyShow options ++ case playState of
-            Alive -> "Score: " ++ show score ++ repeat ' '
-            Dead  -> "Game over! Your score is: " ++ show score ++ " | Highscore is: " ++ show highscore ++ repeat ' '
+        drawString $ take (sizeX'-1) $
+            intercalate " | " (
+                prettyShow options ++
+                case playState of
+                    Alive -> ["Score: " ++ show score]
+                    Dead  -> ["Game over! Your score is: " ++ show score, "Highscore is: " ++ show highscore]
+                )
+            ++ repeat ' '
         moveCursor (div sizeY 2) (div sizeX 2)
     render
     inputUpdate w palette g
