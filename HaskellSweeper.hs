@@ -25,8 +25,8 @@ import           Sweeper.Grid
 -- we often use "palette !! x" for some x
 
 showGrid :: GameState -> Panel -> Position -> [ColorID] -> Update ()
-showGrid gamestate ((left, top), (right, bottom)) (sx, sy) palette =
-    sequence_ [do moveCursor (toInteger $ y - sy) (toInteger $ x - sx); showCell gamestate (x,y) palette | x<-[left..right], y<-[top..bottom]]
+showGrid gamestate (Cartesian left top, Cartesian right bottom) (Cartesian sx sy) palette =
+    sequence_ [do moveCursor (toInteger $ y - sy) (toInteger $ x - sx); showCell gamestate (Cartesian x y) palette | x<-[left..right], y<-[top..bottom]]
 
 showCell :: GameState -> Position -> [ColorID] -> Update ()
 showCell GameState{grid, visibility, markers, playState} pos palette
@@ -105,16 +105,16 @@ main = do
 -- Mainloop
 -- Update the UI
 doUpdate :: Window -> [ColorID] -> GameState -> Curses Score
-doUpdate w palette g@GameState{position=(x, y), score, highscore, playState, options} = do
+doUpdate w palette g@GameState{position=Cartesian x y, score, highscore, playState, options} = do
     updateWindow w $ do
         (sizeY, sizeX) <- windowSize
         let (sizeX', sizeY') = (fromInteger sizeX, fromInteger sizeY)
-        let topLeft@(left, top) = (x - (sizeX' `div` 2), y - (sizeY' `div` 2))
-        let bottomRight = (left + sizeX' - 1, top + sizeY' - 3)
+        let topLeft@(Cartesian left top) = Cartesian (x - (sizeX' `div` 2)) (y - (sizeY' `div` 2))
+        let bottomRight = Cartesian (left + sizeX' - 1) (top + sizeY' - 3)
         let panel = (topLeft, bottomRight)
 
         moveCursor 0 0
-        showGrid g panel (left, top) palette
+        showGrid g panel (Cartesian left top) palette
         moveCursor (sizeY - 2) 0
         setColor $ palette!!2
         drawLineH (Just glyphLineH) sizeX
@@ -147,14 +147,14 @@ stepGameWorld :: Event -> GameUpdate
 stepGameWorld event
     | event `elem` quitEvents          = const Nothing
     | event `elem` restartEvents       = pure . newGame 
-    | event `elem` moveUpEvents        = movePosition Up
-    | event `elem` moveDownEvents      = movePosition Down
-    | event `elem` moveLeftEvents      = movePosition Left
-    | event `elem` moveRightEvents     = movePosition Right
-    | event `elem` moveUpLeftEvents    = movePosition UpLeft
-    | event `elem` moveUpRightEvents   = movePosition UpRight
-    | event `elem` moveDownLeftEvents  = movePosition DownLeft
-    | event `elem` moveDownRightEvents = movePosition DownRight
+    | event `elem` moveUpEvents        = makeMove Up
+    | event `elem` moveDownEvents      = makeMove Down
+    | event `elem` moveLeftEvents      = makeMove Left
+    | event `elem` moveRightEvents     = makeMove Right
+    | event `elem` moveUpLeftEvents    = makeMove UpLeft
+    | event `elem` moveUpRightEvents   = makeMove UpRight
+    | event `elem` moveDownLeftEvents  = makeMove DownLeft
+    | event `elem` moveDownRightEvents = makeMove DownRight
     | event `elem` placeMarkerEvents   = placeMarker
     | event `elem` clickCellEvents     = clickCell
     | otherwise = pure

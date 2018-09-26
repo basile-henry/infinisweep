@@ -80,11 +80,11 @@ createGameState gen opts hs = let (g, g') = split gen in
         grid       = randomGrid (randomCell (density opts)) g,
         visibility = empty,
         markers    = empty,
-        position   = (0, 0),
+        position   = zeroPosition,
         score      = 0,
         highscore  = hs,
         playState  = Alive,
-        panel      = ((-150, -50), (150, 50)),
+        panel      = (movePosition (-150) (-50) zeroPosition, movePosition 150 50 zeroPosition),
         randomgen  = g',
         options    = opts
     }
@@ -115,9 +115,11 @@ isSatisfied GameState{grid, markers} p = tallyMines grid p == tallyMarkers marke
 type GameUpdate = GameState -> Maybe GameState
 
 -- | Change the current position on the grid
-movePosition :: Move -> GameUpdate
-movePosition move g@GameState{grid, visibility, position=(x, y), panel=((left, top), (right, bottom))} =
-    pure newGameState{position = (x+dx, y+dy)}
+--
+-- I don't know what's up with the patterns here... removing the ~'s incorrectly gives an incomplete pattern warning
+makeMove :: Move -> GameUpdate
+makeMove move g@GameState{grid, visibility, position, panel=(topLeft@ ~(Cartesian left top), bottomRight@ ~(Cartesian right bottom))} =
+    pure newGameState{position = movePosition dx dy position}
     where
         -- deltas from a Move
         (dx, dy) = case move of
@@ -131,20 +133,20 @@ movePosition move g@GameState{grid, visibility, position=(x, y), panel=((left, t
             DownRight -> ( 1,  1)
 
         newPanel :: Panel
-        newPanel = ((left+dx, top+dy), (right+dx, bottom+dy))
+        newPanel = (movePosition dx dy topLeft, movePosition dx dy bottomRight)
 
         -- cells on the edge of the panel that need to be updated because the panel is moving
         -- this update is necessary since the cells opened recursively stopped at the edge of the panel
-        cells :: [Position]
+        cells :: [Position] 
         cells = concatMap surroundingPositions $ filter (\p -> member p visibility && (tallyMines grid p == 0)) $ case move of
-            Up        -> [(i, top)    | i <- [left..right]]
-            Down      -> [(i, bottom) | i <- [left..right]]
-            Left      -> [(left, i)   | i <- [top..bottom]]
-            Right     -> [(right, i)  | i <- [top..bottom]]
-            UpLeft    -> [(i, top)    | i <- [left..right]] ++ [(left, i)   | i <- [top..bottom]]
-            UpRight   -> [(i, top)    | i <- [left..right]] ++ [(right, i)  | i <- [top..bottom]]
-            DownLeft  -> [(i, bottom) | i <- [left..right]] ++ [(left, i)   | i <- [top..bottom]]
-            DownRight -> [(i, bottom) | i <- [left..right]] ++ [(right, i)  | i <- [top..bottom]]
+            Up        -> [Cartesian i top    | i <- [left..right]]
+            Down      -> [Cartesian i bottom | i <- [left..right]]
+            Left      -> [Cartesian left i   | i <- [top..bottom]]
+            Right     -> [Cartesian right i  | i <- [top..bottom]]
+            UpLeft    -> [Cartesian i top    | i <- [left..right]] ++ [Cartesian left i   | i <- [top..bottom]]
+            UpRight   -> [Cartesian i top    | i <- [left..right]] ++ [Cartesian right i  | i <- [top..bottom]]
+            DownLeft  -> [Cartesian i bottom | i <- [left..right]] ++ [Cartesian left i   | i <- [top..bottom]]
+            DownRight -> [Cartesian i bottom | i <- [left..right]] ++ [Cartesian right i  | i <- [top..bottom]]
 
         -- get the new GameState with the updated cells and panel
         newGameState = foldl getEmptyCells g{panel=newPanel} cells
