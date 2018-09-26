@@ -7,8 +7,7 @@ import           Data.Hashable       (Hashable)
 import           Data.Set            (Set, delete, empty, insert, member, size)
 import           GHC.Generics        (Generic)
 import qualified Options.Applicative as Opt
-import           System.Random       (StdGen, mkStdGen, randomRs, randoms,
-                                      split)
+import           System.Random       (StdGen, randomR, split)
 
 import           Prelude             hiding (Left, Right)
 
@@ -67,16 +66,18 @@ tallyMines grid pos = length $ filter (==Mine) $ map (getCell grid) (surrounding
 tallyMarkers :: Markers -> Position -> Int
 tallyMarkers markers pos = length $ filter (`member` markers) (surroundingPositions pos)
 
--- | Generate an infinite grid
-randomGrid :: StdGen -> Int -> Grid Cell
-randomGrid gen den = [map (\n -> if n<den then Mine else Empty) $ randomRs (0, 99 :: Int) (mkStdGen g) | g<-randoms gen :: [Int]]
+-- | Randomly generate a cell given a density
+randomCell :: Int -> StdGen -> (Cell, StdGen)
+randomCell density gen =
+  let (n, g) = randomR (0,99) gen
+  in (if n < density then Mine else Empty, g)
 
 -- | Generate a random initial GameState
 createGameState :: StdGen -> Options -> Score -> GameState
 createGameState gen opts hs = let (g, g') = split gen in
   GameState
     {
-        grid       = randomGrid g (density opts),
+        grid       = randomGrid (randomCell (density opts)) g,
         visibility = empty,
         markers    = empty,
         position   = (0, 0),

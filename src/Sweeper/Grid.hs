@@ -1,4 +1,7 @@
-module Sweeper.Grid (Grid, Position, Panel, getCell, surroundingPositions, inBounds) where
+module Sweeper.Grid (Grid, Position, Panel, getCell, surroundingPositions, inBounds, randomGrid) where
+
+import           Data.List     (unfoldr)
+import           System.Random (StdGen, split)
 
 -- | Infinite 2D grid of cells
 type Grid a = [[a]]
@@ -27,3 +30,6 @@ surroundingPositions (x, y) = [(i, j) | i<-[x-1..x+1], j<-[y-1..y+1], x /= i || 
 
 inBounds :: Position -> Panel -> Bool
 inBounds (x, y) ((a, b), (c, d)) = a <= x && x <= c && b <= y && y <= d
+
+randomGrid :: (StdGen -> (a, StdGen)) -> StdGen -> Grid a
+randomGrid f gen = [unfoldr (pure . f) g | g <- unfoldr (pure . split) gen]
