@@ -12,6 +12,7 @@ cabal-version:      >=1.10
 
 library
   exposed-modules:  Sweeper.Grid
+                    Sweeper.Grid.BalancedTernary
                     Sweeper.Game
   build-depends:    base >=4.6 && <5
                   , containers

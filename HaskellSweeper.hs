@@ -108,9 +108,8 @@ doUpdate :: Window -> [ColorID] -> GameState -> Curses Score
 doUpdate w palette g@GameState{position=Cartesian x y, score, highscore, playState, options} = do
     updateWindow w $ do
         (sizeY, sizeX) <- windowSize
-        let (sizeX', sizeY') = (fromInteger sizeX, fromInteger sizeY)
-        let topLeft@(Cartesian left top) = Cartesian (x - (sizeX' `div` 2)) (y - (sizeY' `div` 2))
-        let bottomRight = Cartesian (left + sizeX' - 1) (top + sizeY' - 3)
+        let topLeft@(Cartesian left top) = Cartesian (x - (sizeX `div` 2)) (y - (sizeY `div` 2))
+        let bottomRight = Cartesian (left + sizeX - 1) (top + sizeY - 3)
         let panel = (topLeft, bottomRight)
 
         moveCursor 0 0
@@ -120,7 +119,7 @@ doUpdate w palette g@GameState{position=Cartesian x y, score, highscore, playSta
         drawLineH (Just glyphLineH) sizeX
         moveCursor (sizeY - 1) 0
         setColor $ palette!!0
-        drawString $ take (sizeX'-1) $
+        drawString $ take (fromInteger sizeX-1) $
             intercalate " | " (
                 prettyShow options ++
                 case playState of
