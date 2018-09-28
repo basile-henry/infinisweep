@@ -1,13 +1,13 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns    #-}
-module Sweeper.Grid (Grid, Position(Cartesian), zeroPosition, movePosition, Panel, getCell, surroundingPositions, inBounds, randomGrid) where
+module Sweeper.Grid (Grid, Position(Cartesian), zeroPosition, movePosition, Panel, getCell, surroundingPositions, inBounds, randomGrid, setCell, modifyCell) where
 
 import           System.Random (StdGen, split)
 
 import           Sweeper.Grid.BalancedTernary
 
 -- | Infinite 2D grid of cells
-data Grid a = Grid (Stream (Stream a))
+newtype Grid a = Grid (Stream (Stream a))
 
 -- | Position in the grid
 data Position = Position Index Index
@@ -31,8 +31,14 @@ type Panel = (Position, Position)
 
 -- Get a cell from the 2D infinite grid
 -- TODO: rename?
-getCell :: Grid a -> Position -> a
-getCell (Grid grid) (Position x y) = index (index grid x) y
+getCell :: Position -> Grid a  -> a
+getCell (Position x y) (Grid grid) = index y (index x grid)
+
+setCell :: Position -> a -> Grid a -> Grid a
+setCell (Position x y) a (Grid grid) = Grid $ update x (update y (const a)) grid
+
+modifyCell :: Position -> (a -> a) -> Grid a -> Grid a
+modifyCell (Position x y) f (Grid grid) = Grid $ update x (update y f) grid
 
 surroundingPositions :: Position -> [Position]
 surroundingPositions (Position x y) = [Position i j | i<-[pred x..succ x], j<-[pred y..succ y], x /= i || y /= j]

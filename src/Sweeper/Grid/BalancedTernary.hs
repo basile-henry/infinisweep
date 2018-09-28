@@ -1,9 +1,11 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Sweeper.Grid.BalancedTernary (Stream, index, Index, toIndex, fromIndex, randomStream) where
+module Sweeper.Grid.BalancedTernary (Stream, index, update, Index, toIndex, fromIndex, randomStream) where
 
 import Data.Coerce
+import Data.Functor.Const
+import Data.Functor.Identity
 import System.Random
 
 data Trit = T | O | I
@@ -96,27 +98,34 @@ data Vec n a where
   Nil :: Vec 'Z a
   Cons :: a -> Vec n a -> Vec ('S n) a
 
-indexTernaryTree :: TernaryTree n a -> Vec n Trit -> a
-indexTernaryTree (Leaf a) Nil = a
-indexTernaryTree (Branch t o i) (Cons x n) = case x of
-  T -> indexTernaryTree t n
-  O -> indexTernaryTree o n
-  I -> indexTernaryTree i n
+ternaryTreeLens :: Functor f => Vec n Trit -> (a -> f a) -> TernaryTree n a -> f (TernaryTree n a)
+ternaryTreeLens Nil f (Leaf a) = fmap Leaf (f a)
+ternaryTreeLens (Cons x n) f (Branch t o i) = case x of
+  T -> fmap (\t' -> Branch t' o i) (ternaryTreeLens n f t)
+  O -> fmap (\o' -> Branch t o' i) (ternaryTreeLens n f o)
+  I -> fmap (\i' -> Branch t o i') (ternaryTreeLens n f i)
 
-indexCoTernaryTree :: CoTernaryTree n a -> Vec n Trit -> [Trit] -> a
-indexCoTernaryTree (CoTernaryTree _ _ _) _ [] = error "Unreachable"
-indexCoTernaryTree (CoTernaryTree t _ i) v [x] = case x of
-  T -> indexTernaryTree t v
+coTernaryTreeLens :: Functor f => Vec n Trit -> [Trit] -> (a -> f a) -> CoTernaryTree n a -> f (CoTernaryTree n a)
+coTernaryTreeLens _ [] _ _ = error "Unreachable"
+coTernaryTreeLens v [x] f (CoTernaryTree t o i) = case x of
+  T -> fmap (\t' -> CoTernaryTree t' o i) (ternaryTreeLens v f t)
   O -> error "Unreachable"
-  I -> indexTernaryTree i v
-indexCoTernaryTree (CoTernaryTree _ o _) v (x:xs) = indexCoTernaryTree o (Cons x v) xs
+  I -> fmap (\i' -> CoTernaryTree t o i') (ternaryTreeLens v f i)
+coTernaryTreeLens v (x:xs) f (CoTernaryTree i o t) = fmap (\o' -> CoTernaryTree i o' t) (coTernaryTreeLens (Cons x v) xs f o)
 
-indexSBTSS :: Stream a -> [Trit] -> a
-indexSBTSS (Stream a _) [] = a
-indexSBTSS (Stream _ b) xs = indexCoTernaryTree b Nil xs
+-- sbtssLens :: [Trit] -> Lens' (Stream a) a
+sbtssLens :: Functor f => [Trit] -> (a -> f a) -> Stream a -> f (Stream a)
+sbtssLens [] f (Stream a b) = fmap (\a' -> Stream a' b) (f a)
+sbtssLens xs f (Stream a b) = fmap (\b' -> Stream a b') (coTernaryTreeLens Nil xs f b)
 
-index :: Stream a -> Index -> a
-index s = indexSBTSS s . getIndex
+streamIx :: forall f a. Functor f => Index -> (a -> f a) -> Stream a -> f (Stream a)
+streamIx = sbtssLens . getIndex
+
+index :: Index -> Stream a -> a
+index i s = getConst $ streamIx i Const s
+
+update :: Index -> (a -> a) -> Stream a -> Stream a
+update i f = runIdentity . streamIx i (Identity . f)
 
 randomStream :: forall a. (StdGen -> (a, StdGen)) -> StdGen -> Stream a
 randomStream f gen =

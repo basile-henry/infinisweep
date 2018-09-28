@@ -4,7 +4,6 @@ module Main(main) where
 
 import           Data.Hashable       (Hashable (hash))
 import           Data.List           (intercalate)
-import           Data.Set            (member)
 import qualified Options.Applicative as Opt
 import           Prelude             hiding (Either (..))
 import qualified Prelude             as P
@@ -29,27 +28,24 @@ showGrid gamestate (Cartesian left top, Cartesian right bottom) (Cartesian sx sy
     sequence_ [do moveCursor (toInteger $ y - sy) (toInteger $ x - sx); showCell gamestate (Cartesian x y) palette | x<-[left..right], y<-[top..bottom]]
 
 showCell :: GameState -> Position -> [ColorID] -> Update ()
-showCell GameState{grid, visibility, markers, playState} pos palette
-    | member pos markers    = do markerColor playState currentCell; drawString "#";
-    | playState == Dead &&
-      currentCell == Mine   = drawMine
-    | member pos visibility = showCell' currentCell (tallyMines grid pos)
-    | otherwise             = do setColor $ palette!!0; drawString " "
+showCell GameState{grid, playState} pos palette = showCell' currentCell
     where
         currentCell :: Cell
-        currentCell = getCell grid pos
+        currentCell = getCell pos grid
 
-        showCell' :: Cell -> Int -> Update ()
-        showCell' Mine  _ = drawMine
-        showCell' Empty 0 = do setColor $ palette!!0; drawString "•";
-        showCell' Empty t = do setColor $ palette!!t; drawString $ show t;
+        showCell' :: Cell -> Update ()
+        showCell' (Empty True) | playState == Dead = drawMine
+        showCell' (Mark _)                         = do markerColor playState currentCell; drawString "#";
+        showCell' (Visible 0)                      = do setColor $ palette!!0; drawString "•";
+        showCell' (Visible t)                      = do setColor $ palette!!t; drawString $ show t;
+        showCell' _                                = do setColor $ palette!!0; drawString " ";
 
         drawMine :: Update ()
         drawMine = do setColor $ palette!!8; drawString "X";
 
         markerColor :: PlayState -> Cell -> Update ()
-        markerColor Dead Empty = setColor $ palette!!2
-        markerColor _    _     = setColor $ palette!!8
+        markerColor Dead c | not (isMine c) = setColor $ palette!!2
+        markerColor _    _                  = setColor $ palette!!8
 
 -- Highscore file path depends on the options
 highscorePath :: Options -> FilePath
