@@ -2,4 +2,4 @@
 
 with nixpkgs.pkgs;
 
-haskell.lib.failOnAllWarnings (haskell.packages.${compiler}.callCabal2nix "HaskellSweeper" ./. {})
+haskell.lib.failOnAllWarnings (haskell.packages.${compiler}.callCabal2nix "infinisweep" ./. {})

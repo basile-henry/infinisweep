@@ -1,10 +1,10 @@
-# HaskellSweeper
+# InfiniSweep
 
-HaskellSweeper is a clone of the famous [Minesweeper](https://en.wikipedia.org/wiki/Minesweeper_%28video_game%29) game written in Haskell. It features an infinite grid which means that a game could (in theory) go on forever.
+InfiniSweep is a clone of the famous [Minesweeper](https://en.wikipedia.org/wiki/Minesweeper_%28video_game%29) game written in Haskell. It features an infinite grid which means that a game could (in theory) go on forever.
 
 This game is played in a terminal using `ncurses` to render it.
 
-![HaskellSweeper game screenshot](screenshot.png)
+![InfiniSweep game screenshot](screenshot.png)
 
 ## How to build
 
