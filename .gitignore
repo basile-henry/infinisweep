@@ -1,7 +1,8 @@
 .cabal-sandbox/
 cabal*
 dist/
-out
+dist-newstyle/
+result
 .highscore*
 cabal-dev
 *.o
@@ -18,3 +19,4 @@ cabal.sandbox.config
 *.hp
 .stack-work/
 .DS_Store
+.ghc.environment*
