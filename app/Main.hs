@@ -23,6 +23,14 @@ import           Sweeper.Grid
 {-# ANN module ("HLint: ignore Use head") #-}
 -- we often use "palette !! x" for some x
 
+optionsParser :: Opt.Parser Options
+optionsParser = Options
+  <$> pure False -- Adventure unsupported
+  <*> Opt.switch
+    (Opt.short 'a' <> Opt.long "auto-open" <> Opt.help "Whether to automatically open cells known to not contain a mine")
+  <*> Opt.option Opt.auto
+    (Opt.short 'd' <> Opt.long "density" <> Opt.help "Density of the minefield, as a percentage" <> Opt.value 20 <> Opt.metavar "PERCENT")
+
 showGrid :: GameState -> Panel -> Position -> [ColorID] -> Update ()
 showGrid gamestate (Cartesian left top, Cartesian right bottom) (Cartesian sx sy) palette =
     sequence_ [do moveCursor (toInteger $ y - sy) (toInteger $ x - sx); showCell gamestate (Cartesian x y) palette | x<-[left..right], y<-[top..bottom]]
