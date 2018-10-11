@@ -6,7 +6,6 @@ module Sweeper.Game where
 import           Data.Hashable       (Hashable)
 import           GHC.Generics        (Generic)
 import           Numeric.Natural
-import qualified Options.Applicative as Opt
 import           System.Random       (StdGen, randomR, split)
 
 import           Prelude             hiding (Left, Right)
@@ -45,14 +44,6 @@ data Options = Options
   , autoOpen  :: Bool
   , density   :: Int
   } deriving (Generic, Hashable)
-
-optionsParser :: Opt.Parser Options
-optionsParser = Options
-  <$> pure False -- Adventure unsupported
-  <*> Opt.switch
-    (Opt.short 'a' <> Opt.long "auto-open" <> Opt.help "Whether to automatically open cells known to not contain a mine")
-  <*> Opt.option Opt.auto
-    (Opt.short 'd' <> Opt.long "density" <> Opt.help "Density of the minefield, as a percentage" <> Opt.value 20 <> Opt.metavar "PERCENT")
 
 prettyShow :: Options -> [String]
 prettyShow opts =
