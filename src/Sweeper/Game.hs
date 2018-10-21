@@ -40,14 +40,12 @@ type Score      = Int
 data PlayState  = Alive | Dead deriving Eq
 
 data Options = Options
-  { adventure :: Bool
-  , autoOpen  :: Bool
+  { autoOpen  :: Bool
   , density   :: Int
   }
 
 prettyShow :: Options -> [String]
 prettyShow opts =
-  ["Adventure" | adventure opts] ++
   ["Auto Open" | autoOpen opts] ++
   ["Density: " ++ show (density opts)]
 
