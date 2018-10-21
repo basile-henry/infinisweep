@@ -2,14 +2,16 @@
 
 module Main(main) where
 
-import           Data.Hashable       (Hashable (hash))
+-- base
 import           Data.List           (intercalate)
-import qualified Options.Applicative as Opt
 import           Prelude             hiding (Either (..))
 import qualified Prelude             as P
 import           System.IO.Error     (tryIOError)
-import qualified System.IO.Strict    as S
-import           System.Random       (getStdGen)
+
+-- hashable
+import           Data.Hashable       (Hashable (hash))
+
+-- ncurses
 import           UI.NCurses          (Color (..), ColorID, Curses, Event (..),
                                       Key (..), Update, Window, defaultWindow,
                                       drawLineH, drawString, getEvent,
@@ -17,6 +19,16 @@ import           UI.NCurses          (Color (..), ColorID, Curses, Event (..),
                                       render, runCurses, setColor, setEcho,
                                       updateWindow, windowSize)
 
+-- optparse-applicative
+import qualified Options.Applicative as Opt
+
+-- random
+import           System.Random       (getStdGen)
+
+-- strict
+import qualified System.IO.Strict    as S
+
+-- infinisweep
 import           Sweeper.Game
 import           Sweeper.Grid
 
@@ -53,11 +65,12 @@ showCell GameState{grid, playState} pos palette = showCell' currentCell
 
         markerColor :: PlayState -> Cell -> Update ()
         markerColor Dead c | not (isMine c) = setColor $ palette!!2
-        markerColor _    _                  = setColor $ palette!!8
+        markerColor _    _ = setColor $ palette!!8
 
 -- Highscore file path depends on the options
 highscorePath :: Options -> FilePath
-highscorePath options = ".highscore_" ++ show (hash options)
+highscorePath Options{autoOpen, density} = ".highscore_" ++
+  show (hash (autoOpen, density))
 
 readHighscore :: Options -> IO Score
 readHighscore options = do
@@ -149,7 +162,7 @@ inputUpdate w palette g =
 stepGameWorld :: Event -> GameUpdate
 stepGameWorld event
     | event `elem` quitEvents          = const Nothing
-    | event `elem` restartEvents       = pure . newGame 
+    | event `elem` restartEvents       = pure . newGame
     | event `elem` moveUpEvents        = makeMove Up
     | event `elem` moveDownEvents      = makeMove Down
     | event `elem` moveLeftEvents      = makeMove Left

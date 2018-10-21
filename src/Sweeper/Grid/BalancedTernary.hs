@@ -1,26 +1,30 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE GADTs               #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
 module Sweeper.Grid.BalancedTernary (Stream, index, update, Index, toIndex, fromIndex, randomStream) where
 
-import Data.Coerce
-import Data.Functor.Const
-import Data.Functor.Identity
-import System.Random
+-- base
+import           Data.Coerce
+import           Data.Functor.Const
+import           Data.Functor.Identity
+
+-- random
+import           System.Random
 
 data Trit = T | O | I
   deriving (Eq, Ord, Show)
 
 predTernary :: [Trit] -> [Trit]
-predTernary [] = [T]
-predTernary [I] = []
+predTernary []     = [T]
+predTernary [I]    = []
 predTernary (O:ns) = T:ns
 predTernary (I:ns) = O:ns
 predTernary (T:ns) = I:predTernary ns
 
 succTernary :: [Trit] -> [Trit]
-succTernary [] = [I]
-succTernary [T] = []
+succTernary []     = [I]
+succTernary [T]    = []
 succTernary (T:ns) = O:ns
 succTernary (O:ns) = I:ns
 succTernary (I:ns) = T:succTernary ns
@@ -30,8 +34,8 @@ consO [] = []
 consO xs = O:xs
 
 plusTernary :: [Trit] -> [Trit] -> [Trit]
-plusTernary [] ns = ns
-plusTernary ms [] = ms
+plusTernary [] ns         = ns
+plusTernary ms []         = ms
 plusTernary (T:ms) (O:ns) = T:plusTernary ms ns
 plusTernary (T:ms) (I:ns) = consO $ plusTernary ms ns
 plusTernary (O:ms) (O:ns) = consO $ plusTernary ms ns
@@ -47,10 +51,10 @@ toBalancedTernary x = case x `divMod` 3 of
   (q, 0) -> O : toBalancedTernary q
   (q, 1) -> I : toBalancedTernary q
   (q, 2) -> T : toBalancedTernary (q + 1)
-  _ -> error "Unreachable"
+  _      -> error "Unreachable"
 
 fromBalancedTernary :: [Trit] -> Integer
-fromBalancedTernary [] = 0
+fromBalancedTernary []     = 0
 fromBalancedTernary (T:ns) = (-1) + 3 * fromBalancedTernary ns
 fromBalancedTernary (O:ns) =        3 * fromBalancedTernary ns
 fromBalancedTernary (I:ns) =   1  + 3 * fromBalancedTernary ns

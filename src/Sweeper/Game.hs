@@ -1,15 +1,15 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric  #-}
 {-# LANGUAGE NamedFieldPuns #-}
+
 module Sweeper.Game where
 
-import           Data.Hashable       (Hashable)
-import           GHC.Generics        (Generic)
+-- base
 import           Numeric.Natural
-import           System.Random       (StdGen, randomR, split)
+import           Prelude         hiding (Left, Right)
 
-import           Prelude             hiding (Left, Right)
+-- random
+import           System.Random   (StdGen, randomR, split)
 
+-- infinisweep
 import           Sweeper.Grid
 
 data Cell       = Empty Bool | Mark Bool | Visible Int deriving Eq
@@ -17,7 +17,7 @@ data Cell       = Empty Bool | Mark Bool | Visible Int deriving Eq
 isMine :: Cell -> Bool
 isMine (Empty mine) = mine
 isMine (Mark  mine) = mine
-isMine _      = False
+isMine _            = False
 
 isVisible :: Cell -> Bool
 isVisible Visible{} = True
@@ -29,11 +29,11 @@ isMarked _      = False
 
 mark :: Cell -> Cell
 mark (Empty mine) = Mark mine
-mark cell = cell
+mark cell         = cell
 
 unmark :: Cell -> Cell
 unmark (Mark mine) = Empty mine
-unmark cell = cell
+unmark cell        = cell
 
 -- | The score corresponds to the sum of all the numbers showing in the visible cells
 type Score      = Int
@@ -43,7 +43,7 @@ data Options = Options
   { adventure :: Bool
   , autoOpen  :: Bool
   , density   :: Int
-  } deriving (Generic, Hashable)
+  }
 
 prettyShow :: Options -> [String]
 prettyShow opts =
@@ -54,15 +54,15 @@ prettyShow opts =
 data Move       = Up | Down | Left | Right | UpLeft | UpRight | DownLeft | DownRight -- Possible ways to move on the grid
 data GameState  = GameState
     {
-        grid       :: Grid Cell,
-        visible    :: Natural,
-        score      :: Score,
-        position   :: Position,
-        highscore  :: Score,
-        playState  :: PlayState,
-        panel      :: Panel,
-        randomgen  :: StdGen,
-        options    :: Options
+        grid      :: Grid Cell,
+        visible   :: Natural,
+        score     :: Score,
+        position  :: Position,
+        highscore :: Score,
+        playState :: PlayState,
+        panel     :: Panel,
+        randomgen :: StdGen,
+        options   :: Options
     }
 
 -- | Count the number of mines in the positions around a given position
@@ -143,7 +143,7 @@ makeMove move g@GameState{grid, position, panel=(topLeft@ ~(Cartesian left top),
 
         -- cells on the edge of the panel that need to be updated because the panel is moving
         -- this update is necessary since the cells opened recursively stopped at the edge of the panel
-        cells :: [Position] 
+        cells :: [Position]
         cells = concatMap surroundingPositions $ filter (\p -> isVisible (getCell p grid) && (tallyMines grid p == 0)) $ case move of
             Up        -> [Cartesian i top    | i <- [left..right]]
             Down      -> [Cartesian i bottom | i <- [left..right]]

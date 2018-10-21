@@ -1,9 +1,12 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns    #-}
+
 module Sweeper.Grid (Grid, Position(Cartesian), zeroPosition, movePosition, Panel, getCell, surroundingPositions, inBounds, randomGrid, setCell, modifyCell) where
 
-import           System.Random (StdGen, split)
+-- random
+import           System.Random                (StdGen, split)
 
+-- infinisweep
 import           Sweeper.Grid.BalancedTernary
 
 -- | Infinite 2D grid of cells
@@ -47,5 +50,5 @@ inBounds :: Position -> Panel -> Bool
 inBounds (Cartesian x y) (Cartesian a b, Cartesian c d) = a <= x && x <= c && b <= y && y <= d
 
 randomGrid :: (StdGen -> (a, StdGen)) -> StdGen -> Grid a
-randomGrid f gen = 
+randomGrid f gen =
   Grid $ randomStream (\g -> let (g0, g1) = split g in (randomStream f g0, g1)) gen
