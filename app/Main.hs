@@ -12,12 +12,7 @@ import           System.IO.Error     (tryIOError)
 import           Data.Hashable       (Hashable (hash))
 
 -- ncurses
-import           UI.NCurses          (Color (..), ColorID, Curses, Event (..),
-                                      Key (..), Update, Window, defaultWindow,
-                                      drawLineH, drawString, getEvent,
-                                      glyphLineH, moveCursor, newColorID,
-                                      render, runCurses, setColor, setEcho,
-                                      updateWindow, windowSize)
+import           UI.NCurses
 
 -- optparse-applicative
 import qualified Options.Applicative as Opt
@@ -55,7 +50,7 @@ showCell GameState{grid, playState} pos palette = showCell' currentCell
         showCell' :: Cell -> Update ()
         showCell' (Empty True) | playState == Dead = drawMine
         showCell' (Mark _)                         = do markerColor playState currentCell; drawString "#";
-        showCell' (Visible 0)                      = do setColor $ palette!!0; drawString "•";
+        showCell' (Visible 0)                      = do setColor $ palette!!0; drawString "-";
         showCell' (Visible t)                      = do setColor $ palette!!t; drawString $ show t;
         showCell' _                                = do setColor $ palette!!0; drawString " ";
 
@@ -132,7 +127,7 @@ doUpdate w palette g@GameState{position=Cartesian x y, score, highscore, playSta
         showGrid g panel (Cartesian left top) palette
         moveCursor (sizeY - 2) 0
         setColor $ palette!!2
-        drawLineH (Just glyphLineH) sizeX
+        drawLineH Nothing sizeX
         moveCursor (sizeY - 1) 0
         setColor $ palette!!0
         drawString $ take (fromInteger sizeX-1) $
