@@ -1,4 +1,4 @@
-{ nixpkgs ? import ./nixpkgs.nix {}, compiler ? "ghc843" }:
+{ nixpkgs ? import ./nixpkgs.nix {}, compiler ? "ghc864" }:
 
 with nixpkgs.pkgs;
 
