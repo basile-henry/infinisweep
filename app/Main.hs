@@ -1,15 +1,14 @@
+{-# LANGUAGE BangPatterns   #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Main(main) where
 
 -- base
+import           Data.Bool           (bool)
 import           Data.List           (intercalate)
 import           Prelude             hiding (Either (..))
 import qualified Prelude             as P
 import           System.IO.Error     (tryIOError)
-
--- hashable
-import           Data.Hashable       (Hashable (hash))
 
 -- ncurses
 import           UI.NCurses
@@ -19,9 +18,6 @@ import qualified Options.Applicative as Opt
 
 -- random
 import           System.Random       (getStdGen)
-
--- strict
-import qualified System.IO.Strict    as S
 
 -- infinisweep
 import           Sweeper.Game
@@ -63,12 +59,15 @@ showCell GameState{grid, playState} pos palette = showCell' currentCell
 
 -- Highscore file path depends on the options
 highscorePath :: Options -> FilePath
-highscorePath Options{autoOpen, density} = ".highscore_" ++
-  show (hash (autoOpen, density))
+highscorePath Options{autoOpen, density} = concat
+  [ ".highscore_"
+  , bool "" "auto_" autoOpen
+  , show density
+  ]
 
 readHighscore :: Options -> IO Score
 readHighscore options = do
-    strOrExc <- tryIOError $ S.readFile $ highscorePath options
+    strOrExc <- tryIOError $ readFile $ highscorePath options
     let
         getScore :: [String] -> Score
         getScore []    = 0
@@ -87,7 +86,7 @@ main :: IO ()
 main = do
     gen  <- getStdGen
     options <- Opt.execParser $ Opt.info (Opt.helper <*> optionsParser) Opt.fullDesc
-    highscore <- readHighscore options -- get the saved highscore
+    !highscore <- readHighscore options -- get the saved highscore
 
     -- Start the UI and the mainloop
     -- get the new highscore
