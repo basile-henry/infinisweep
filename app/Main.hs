@@ -1,23 +1,31 @@
 {-# LANGUAGE BangPatterns   #-}
+{-# LANGUAGE LambdaCase     #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Main(main) where
 
 -- base
-import           Data.Bool           (bool)
-import           Data.List           (intercalate)
-import           Prelude             hiding (Either (..))
-import qualified Prelude             as P
-import           System.IO.Error     (tryIOError)
+import           Data.Bool             (bool)
+import           Data.List             (intercalate)
+import           Prelude               hiding (Either (..))
+import qualified Prelude               as P
+import           System.Environment    (lookupEnv)
+import           System.IO.Error       (tryIOError)
+
+-- directory
+import           System.Directory      (createDirectoryIfMissing)
+
+-- filepath
+import           System.FilePath.Posix ((</>))
 
 -- ncurses
 import           UI.NCurses
 
 -- optparse-applicative
-import qualified Options.Applicative as Opt
+import qualified Options.Applicative   as Opt
 
 -- random
-import           System.Random       (getStdGen)
+import           System.Random         (getStdGen)
 
 -- infinisweep
 import           Sweeper.Game
@@ -58,16 +66,34 @@ showCell GameState{grid, playState} pos palette = showCell' currentCell
         markerColor _    _ = setColor $ palette!!8
 
 -- Highscore file path depends on the options
-highscorePath :: Options -> FilePath
-highscorePath Options{autoOpen, density} = concat
-  [ ".highscore_"
-  , bool "" "auto_" autoOpen
-  , show density
-  ]
+-- This uses the XDG spec to determine the location of the data directory
+getHighscorePath :: Options -> IO FilePath
+getHighscorePath Options{autoOpen, density} = do
+  let fileName = concat
+          [ "highscore_"
+          , bool "" "auto_" autoOpen
+          , show density
+          ]
+
+  dataDir <- lookupEnv "XDG_DATA_HOME" >>= \case
+      Just dataHome -> return dataHome
+      Nothing ->
+          lookupEnv "HOME" >>= \case
+              Just home -> return (home </> ".local" </> "share")
+              Nothing -> error $ unlines
+                  [ "Unable to set path for highscore file."
+                  , "One of $XDG_DATA_HOME or $HOME needs to be set."
+                  ]
+
+  let infinisweepDataDir = dataDir </> "infinisweep"
+  createDirectoryIfMissing True infinisweepDataDir
+
+  return (infinisweepDataDir </> fileName)
 
 readHighscore :: Options -> IO Score
 readHighscore options = do
-    strOrExc <- tryIOError $ readFile $ highscorePath options
+    highscorePath <- getHighscorePath options
+    strOrExc <- tryIOError $ readFile highscorePath
     let
         getScore :: [String] -> Score
         getScore []    = 0
@@ -80,7 +106,9 @@ readHighscore options = do
     return highscore
 
 writeHighscore :: Options -> Score -> IO ()
-writeHighscore options score = writeFile (highscorePath options) (show score)
+writeHighscore options score = do
+  highscorePath <- getHighscorePath options
+  writeFile highscorePath (show score)
 
 main :: IO ()
 main = do
