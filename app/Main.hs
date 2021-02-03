@@ -34,7 +34,7 @@ optionsParser = Options
     (Opt.short 'd' <> Opt.long "density" <> Opt.help "Density of the minefield, as a percentage" <> Opt.value 20 <> Opt.metavar "PERCENT")
 
 showGrid :: GameState -> Panel -> Position -> [ColorID] -> Update ()
-showGrid gamestate (Cartesian left top, Cartesian right bottom) (Cartesian sx sy) palette =
+showGrid gamestate ~(Cartesian left top, Cartesian right bottom) ~(Cartesian sx sy) palette =
     sequence_ [do moveCursor (toInteger $ y - sy) (toInteger $ x - sx); showCell gamestate (Cartesian x y) palette | x<-[left..right], y<-[top..bottom]]
 
 showCell :: GameState -> Position -> [ColorID] -> Update ()
@@ -115,7 +115,7 @@ main = do
 -- Mainloop
 -- Update the UI
 doUpdate :: Window -> [ColorID] -> GameState -> Curses Score
-doUpdate w palette g@GameState{position=Cartesian x y, score, highscore, playState, options} = do
+doUpdate w palette g@GameState{position = ~(Cartesian x y), score, highscore, playState, options} = do
     updateWindow w $ do
         (sizeY, sizeX) <- windowSize
         let topLeft@(Cartesian left top) = Cartesian (x - (sizeX `div` 2)) (y - (sizeY `div` 2))
