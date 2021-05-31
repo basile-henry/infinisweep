@@ -55,5 +55,5 @@ jobs:
     - uses: cachix/cachix-action@v10
       with:
         name: basile-henry
-        signingKey: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+        signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
     - run: nix-build
