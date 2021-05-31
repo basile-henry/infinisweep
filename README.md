@@ -1,6 +1,6 @@
 # InfiniSweep
 
-![ci](https://github.com/basile-henry/infinisweep/workflows/ci/badge.svg)
+![ci](https://github.com/basile-henry/infinisweep/actions/workflows/ci.yml/badge.svg)
 
 InfiniSweep is a clone of the famous [Minesweeper](https://en.wikipedia.org/wiki/Minesweeper_%28video_game%29) game written in Haskell. It features an infinite grid which means that a game could (in theory) go on forever.
 
