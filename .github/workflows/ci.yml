@@ -42,6 +42,11 @@ jobs:
           ghc-version: '8.4.3'
           enable-stack: true
           stack-version: 'latest'
+      - uses: actions/cache@v2
+        name: Cache ~/.stack
+        with:
+          path: ~/.stack
+          key: ${{ runner.os }}-${{ matrix.ghc }}-stack
       - run: sudo apt-get install libncursesw5-dev # install ncurses
       - run: stack build
 
