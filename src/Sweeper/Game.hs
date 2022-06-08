@@ -119,10 +119,8 @@ isSatisfied GameState{grid} p = tallyMines grid p == tallyMarkers grid p
 type GameUpdate = GameState -> Maybe GameState
 
 -- | Change the current position on the grid
---
--- I don't know what's up with the patterns here... removing the ~'s incorrectly gives an incomplete pattern warning
 makeMove :: Move -> GameUpdate
-makeMove move g@GameState{grid, position, panel=(topLeft@ ~(Cartesian left top), bottomRight@ ~(Cartesian right bottom))} =
+makeMove move g@GameState{grid, position, panel=(topLeft@(Cartesian left top), bottomRight@(Cartesian right bottom))} =
     pure newGameState{position = movePosition dx dy position}
     where
         -- deltas from a Move
