@@ -1,5 +1,5 @@
 {
-  "url":    "https://github.com/NixOS/nixpkgs/archive/20.03.tar.gz",
-  "rev":    "5272327b81ed355bbed5659b8d303cf2979b6953",
-  "sha256": "0182ys095dfx02vl2a20j1hz92dx3mfgz2a6fhn31bqlp1wa8hlq"
+  "url":    "https://github.com/NixOS/nixpkgs/archive/21.11.tar.gz",
+  "rev":    "a7ecde854aee5c4c7cd6177f54a99d2c1ff28a31",
+  "sha256": "162dywda2dvfj1248afxc45kcrg83appjd0nmdb541hl7rnncf02"
 }

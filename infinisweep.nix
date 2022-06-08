@@ -1,5 +1,4 @@
-{ mkDerivation, base, hashable, ncurses, optparse-applicative
-, random, stdenv, strict
+{ mkDerivation, lib, base, hashable, ncurses, optparse-applicative, random, strict
 }:
 mkDerivation {
   pname = "infinisweep";
@@ -11,5 +10,5 @@ mkDerivation {
   executableHaskellDepends = [
     base hashable ncurses optparse-applicative random strict
   ];
-  license = stdenv.lib.licenses.mit;
+  license = lib.licenses.mit;
 }
