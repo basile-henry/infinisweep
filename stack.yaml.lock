@@ -5,15 +5,15 @@
 
 packages:
 - completed:
-    hackage: ncurses-0.2.14@sha256:98d291520d0df15336980ba02635578958d8c41353efef208c130f8b07ac5f63,3575
+    hackage: ncurses-0.2.16@sha256:8ad9fe6562a80d28166d76adbac1eb4d40c6511fe4e9272ed6e1166dc2f1cdf1,3575
     pantry-tree:
       size: 674
-      sha256: a27a8699aee725e04512754ce8953888e8c2c7c84160e0a1220482569653f24c
+      sha256: 093bdc85ed518c81724f5b6b81c24ab4ebdd231551861f4feaa43361136f70b7
   original:
-    hackage: ncurses-0.2.14
+    hackage: ncurses-0.2.16
 snapshots:
 - completed:
-    size: 504771
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/12/14.yaml
-    sha256: 3cbd6c83316dd5e2bbc756dc7a2a4e31a31859c3f8b5c720efb6850b08e42649
-  original: lts-12.14
+    size: 618509
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/19/10.yaml
+    sha256: 005f204647467d65c4ab549a5ca35d54b3d90a84a99a4ffc5d421a4018854fe2
+  original: lts-19.10
