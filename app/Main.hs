@@ -18,14 +18,14 @@ import           System.Directory      (createDirectoryIfMissing)
 -- filepath
 import           System.FilePath.Posix ((</>))
 
--- ncurses
-import           UI.NCurses
-
 -- optparse-applicative
 import qualified Options.Applicative   as Opt
 
 -- random
 import           System.Random         (getStdGen)
+
+-- vty
+import           Graphics.Vty
 
 -- infinisweep
 import           Sweeper.Game
@@ -41,29 +41,51 @@ optionsParser = Options
   <*> Opt.option Opt.auto
     (Opt.short 'd' <> Opt.long "density" <> Opt.help "Density of the minefield, as a percentage" <> Opt.value 20 <> Opt.metavar "PERCENT")
 
-showGrid :: GameState -> Panel -> Position -> [ColorID] -> Update ()
-showGrid gamestate ~(Cartesian left top, Cartesian right bottom) ~(Cartesian sx sy) palette =
-    sequence_ [do moveCursor (toInteger $ y - sy) (toInteger $ x - sx); showCell gamestate (Cartesian x y) palette | x<-[left..right], y<-[top..bottom]]
+showGrid :: GameState -> Panel -> Image
+showGrid gamestate ~(Cartesian left top, Cartesian right bottom) =
+    vertCat
+        [ horizCat
+            [ showCell gamestate (Cartesian x y)
+            | x <- [left..right]
+            ]
+        | y <- [top..bottom]
+        ]
 
-showCell :: GameState -> Position -> [ColorID] -> Update ()
-showCell GameState{grid, playState} pos palette = showCell' currentCell
+showCell :: GameState -> Position -> Image
+showCell GameState{grid, playState} pos = showCell' currentCell
     where
         currentCell :: Cell
         currentCell = getCell pos grid
 
-        showCell' :: Cell -> Update ()
-        showCell' (Empty True) | playState == Dead = drawMine
-        showCell' (Mark _)                         = do markerColor playState currentCell; drawString "#";
-        showCell' (Visible 0)                      = do setColor $ palette!!0; drawString "-";
-        showCell' (Visible t)                      = do setColor $ palette!!t; drawString $ show t;
-        showCell' _                                = do setColor $ palette!!0; drawString " ";
+        showCell' :: Cell -> Image
+        showCell' (Empty True)
+            | playState == Dead = drawMine
+        showCell' (Mark _)      = char (markerColor playState currentCell) '#'
+        showCell' (Visible t)   =
+            char
+                (defAttr `withForeColor` (numColor !! t))
+                (if t == 0 then '-' else head $ show t)
+        showCell' _             = char defAttr ' '
 
-        drawMine :: Update ()
-        drawMine = do setColor $ palette!!8; drawString "X";
+        numColor :: [Color]
+        numColor =
+          [ blue          -- 0
+          , white         -- 1
+          , yellow        -- 2
+          , green         -- 3
+          , cyan          -- 4
+          , magenta       -- 5
+          , brightBlue    -- 6
+          , brightGreen   -- 7
+          , brightMagenta -- 8
+          ]
 
-        markerColor :: PlayState -> Cell -> Update ()
-        markerColor Dead c | not (isMine c) = setColor $ palette!!2
-        markerColor _    _ = setColor $ palette!!8
+        drawMine :: Image
+        drawMine = char (defAttr `withForeColor` red) 'X'
+
+        markerColor :: PlayState -> Cell -> Attr
+        markerColor Dead c | not (isMine c) = defAttr `withForeColor` yellow
+        markerColor _    _ = defAttr `withForeColor` red
 
 -- Highscore file path depends on the options
 -- This uses the XDG spec to determine the location of the data directory
@@ -116,95 +138,130 @@ main = do
     options <- Opt.execParser $ Opt.info (Opt.helper <*> optionsParser) Opt.fullDesc
     !highscore <- readHighscore options -- get the saved highscore
 
+    cfg <- standardIOConfig
+    vty <- mkVty cfg
+
     -- Start the UI and the mainloop
     -- get the new highscore
-    new_highscore <- runCurses $ do
-        setEcho False -- prevent keyboard from writing in the terminal
-        w <- defaultWindow
-        -- get user defined colors (from the profile)
-        palette <- sequence
-            [
-                newColorID ColorBlue    ColorDefault 1,
-                newColorID ColorWhite   ColorDefault 2,
-                newColorID ColorYellow  ColorDefault 3,
-                newColorID ColorGreen   ColorDefault 4,
-                newColorID ColorMagenta ColorDefault 5,
-                newColorID ColorCyan    ColorDefault 6,
-                newColorID ColorBlack   ColorDefault 7,
-                newColorID ColorRed     ColorDefault 8,
-                newColorID ColorRed     ColorDefault 9
-            ]
-
-        doUpdate w palette (createGameState gen options highscore)
+    new_highscore <- doUpdate vty (createGameState gen options highscore)
 
     -- save the new highscore
     writeHighscore options new_highscore
+    shutdown vty
 
 -- Mainloop
 -- Update the UI
-doUpdate :: Window -> [ColorID] -> GameState -> Curses Score
-doUpdate w palette g@GameState{position = ~(Cartesian x y), score, highscore, playState, options} = do
-    updateWindow w $ do
-        (sizeY, sizeX) <- windowSize
-        let topLeft@(Cartesian left top) = Cartesian (x - (sizeX `div` 2)) (y - (sizeY `div` 2))
-        let bottomRight = Cartesian (left + sizeX - 1) (top + sizeY - 3)
-        let panel = (topLeft, bottomRight)
+doUpdate :: Vty -> GameState -> IO Score
+doUpdate vty g@GameState{position = ~(Cartesian x y), score, highscore, playState, options} = do
+    (displayWidth, displayHeight) <- displayBounds (outputIface vty)
 
-        moveCursor 0 0
-        showGrid g panel (Cartesian left top) palette
-        moveCursor (sizeY - 2) 0
-        setColor $ palette!!2
-        drawLineH Nothing sizeX
-        moveCursor (sizeY - 1) 0
-        setColor $ palette!!0
-        drawString $ take (fromInteger sizeX-1) $
-            intercalate " | " (
-                prettyShow options ++
-                case playState of
-                    Alive -> ["Score: " ++ show score]
-                    Dead  -> ["Game over! Your score is: " ++ show score, "Highscore is: " ++ show highscore]
-                )
-            ++ repeat ' '
-        moveCursor (div sizeY 2) (div sizeX 2)
-    render
-    inputUpdate w palette g
+    let sizeX = toInteger displayWidth
+        sizeY = toInteger displayHeight
+
+        topLeft@(Cartesian left top) = Cartesian (x - (sizeX `div` 2)) (y - (sizeY `div` 2))
+        bottomRight = Cartesian (left + sizeX - 1) (top + sizeY - 3)
+        panel = (topLeft, bottomRight)
+
+        image = vertCat
+            [ showGrid g panel
+            , string (defAttr `withForeColor` yellow) (replicate displayWidth '─')
+            , string (defAttr `withForeColor` blue) $ take displayWidth $
+              intercalate " | " (
+                  prettyShow options ++
+                  case playState of
+                      Alive -> ["Score: " ++ show score]
+                      Dead  -> ["Game over! Your score is: " ++ show score, "Highscore is: " ++ show highscore]
+                  )
+              ++ repeat ' '
+            ]
+
+        picture = Picture
+            { picCursor = AbsoluteCursor (displayWidth `div` 2) (displayHeight `div` 2)
+            , picLayers = [image]
+            , picBackground = ClearBackground
+            }
+
+    update vty picture
+    inputUpdate vty g
 
 -- Take keyboard inputs and update GameState
-inputUpdate :: Window -> [ColorID] -> GameState -> Curses Score
-inputUpdate w palette g =
-    getEvent w (Just 100) >>= maybe
-        (doUpdate w palette g)
-        (\key -> case stepGameWorld key g of
-          Nothing -> pure (highscore g)
-          Just g' -> doUpdate w palette g'
-          )
+inputUpdate :: Vty -> GameState -> IO Score
+inputUpdate vty g = do
+    event <- nextEvent vty
+    case stepGameWorld event g of
+        Nothing -> pure (highscore g)
+        Just g' -> doUpdate vty g'
 
 -- Handle keyboard inputs on the current GameState and update the GameState accordingly
 stepGameWorld :: Event -> GameUpdate
-stepGameWorld event
-    | event `elem` quitEvents          = const Nothing
-    | event `elem` restartEvents       = pure . newGame
-    | event `elem` moveUpEvents        = makeMove Up
-    | event `elem` moveDownEvents      = makeMove Down
-    | event `elem` moveLeftEvents      = makeMove Left
-    | event `elem` moveRightEvents     = makeMove Right
-    | event `elem` moveUpLeftEvents    = makeMove UpLeft
-    | event `elem` moveUpRightEvents   = makeMove UpRight
-    | event `elem` moveDownLeftEvents  = makeMove DownLeft
-    | event `elem` moveDownRightEvents = makeMove DownRight
-    | event `elem` placeMarkerEvents   = placeMarker
-    | event `elem` clickCellEvents     = clickCell
+stepGameWorld (EvKey key _)
+    | quit key          = const Nothing
+    | restart key       = pure . newGame
+    | moveUp key        = makeMove Up
+    | moveDown key      = makeMove Down
+    | moveLeft key      = makeMove Left
+    | moveRight key     = makeMove Right
+    | moveUpLeft key    = makeMove UpLeft
+    | moveUpRight key   = makeMove UpRight
+    | moveDownLeft key  = makeMove DownLeft
+    | moveDownRight key = makeMove DownRight
+    | placeMarkerK key  = placeMarker
+    | clickCellK key    = clickCell
     | otherwise = pure
   where
-    quitEvents          =                                 map EventCharacter "qQ"
-    restartEvents       =                                 map EventCharacter "rR"
-    moveUpEvents        = EventSpecialKey KeyUpArrow    : map EventCharacter "wWkK8"
-    moveDownEvents      = EventSpecialKey KeyDownArrow  : map EventCharacter "sSjJ2"
-    moveLeftEvents      = EventSpecialKey KeyLeftArrow  : map EventCharacter "aAhH4"
-    moveRightEvents     = EventSpecialKey KeyRightArrow : map EventCharacter "dDlL6"
-    moveUpLeftEvents    =                                 map EventCharacter "yY7"
-    moveUpRightEvents   =                                 map EventCharacter "uU9"
-    moveDownLeftEvents  =                                 map EventCharacter "bB1"
-    moveDownRightEvents =                                 map EventCharacter "nN3"
-    placeMarkerEvents   =                                 map EventCharacter "mMeE5"
-    clickCellEvents     = EventSpecialKey KeyEnter      : map EventCharacter " 0"
+    quit = \case
+        KChar c | c `elem` "qQ" -> True
+        _                       -> False
+
+    restart = \case
+        KChar c | c `elem` "rR" -> True
+        _                       -> False
+
+    moveUp = \case
+        KChar c | c `elem` "wWkK8" -> True
+        KUp                        -> True
+        _                          -> False
+
+    moveDown = \case
+        KChar c | c `elem` "sSjJ2" -> True
+        KDown                      -> True
+        _                          -> False
+
+    moveLeft = \case
+        KChar c | c `elem` "aAhH4" -> True
+        KLeft                      -> True
+        _                          -> False
+
+    moveRight = \case
+        KChar c | c `elem` "dDlL6" -> True
+        KRight                     -> True
+        _                          -> False
+
+    moveUpLeft = \case
+        KChar c | c `elem` "yY7" -> True
+        KUpLeft                  -> True
+        _                        -> False
+
+    moveUpRight = \case
+        KChar c | c `elem` "uU9" -> True
+        KUpRight                 -> True
+        _                        -> False
+
+    moveDownLeft = \case
+        KChar c | c `elem` "bB1" -> True
+        KDownLeft                -> True
+        _                        -> False
+
+    moveDownRight = \case
+        KChar c | c `elem` "nN3" -> True
+        KDownRight               -> True
+        _                        -> False
+
+    placeMarkerK = \case
+        KChar c | c `elem` "mMeE5" -> True
+        _                          -> False
+
+    clickCellK = \case
+        KChar c | c `elem` " 0" -> True
+        _                       -> False
+stepGameWorld _ = pure
