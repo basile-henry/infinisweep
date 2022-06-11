@@ -1,3 +1,11 @@
-{ nixpkgs ? import ./nixpkgs.nix {} }:
+{ nixpkgs ? import ./nix/nixpkgs.nix {} }:
 
-(import ./default.nix { inherit nixpkgs; }).env
+nixpkgs.mkShell {
+  name = "infinisweep-shell";
+  packages = [
+    nixpkgs.niv
+  ];
+  inputsFrom = [
+    (import ./default.nix { inherit nixpkgs; })
+  ];
+}
