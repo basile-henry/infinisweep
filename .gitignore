@@ -2,3 +2,4 @@ dist-newstyle/
 result
 .stack-work/
 .ghc.environment*
+result-*
