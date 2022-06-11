@@ -37,7 +37,7 @@ import           Sweeper.Grid
 optionsParser :: Opt.Parser Options
 optionsParser = Options
   <$> Opt.switch
-    (Opt.short 'a' <> Opt.long "auto-open" <> Opt.help "Whether to automatically open cells known to not contain a mine")
+    (Opt.short 'a' <> Opt.long "auto-open" <> Opt.help "Open cells automatically (as per flags/markers)")
   <*> Opt.option Opt.auto
     (Opt.short 'd' <> Opt.long "density" <> Opt.help "Density of the minefield, as a percentage" <> Opt.value 20 <> Opt.metavar "PERCENT")
 

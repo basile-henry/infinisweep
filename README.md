@@ -45,8 +45,7 @@ Usage: infinisweep [-a|--auto-open] [-d|--density PERCENT]
 
 Available options:
   -h,--help                Show this help text
-  -a,--auto-open           Whether to automatically open cells known to not
-                           contain a mine
+  -a,--auto-open           Open cells automatically (as per flags/markers)
   -d,--density PERCENT     Density of the minefield, as a percentage
 ```
 
