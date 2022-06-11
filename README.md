@@ -89,4 +89,5 @@ This project is licensed under the MIT License.
 ```
 Copyright (c) 2016 Basile Henry & David Eichmann
 Copyright (c) 2018 Basile Henry & Nathan van Doorn
+Copyright (c) 2021-2022 Basile Henry
 ```
