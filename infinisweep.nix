@@ -1,9 +1,9 @@
-{ mkDerivation, lib, base, hashable, optparse-applicative, random, strict, vty
+{ mkDerivation, lib, base, hashable, optparse-applicative, random, strict, vty, gitignoreSource
 }:
 mkDerivation {
   pname = "infinisweep";
   version = "0.1.0.0";
-  src = ./.;
+  src = gitignoreSource ./.;
   isLibrary = true;
   isExecutable = true;
   libraryHaskellDepends = [ base random ];

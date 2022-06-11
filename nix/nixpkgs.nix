@@ -35,5 +35,9 @@ let compiler = "ghc902";
         };
       };
     };
+
+    overlay = self: super: {
+      inherit (import sources."gitignore.nix" { inherit (self) lib; }) gitignoreSource;
+    };
 in
-import sources.nixpkgs { overlays = [haskellStaticOverlay] ; config = {}; }
+import sources.nixpkgs { overlays = [haskellStaticOverlay overlay] ; config = {}; }
